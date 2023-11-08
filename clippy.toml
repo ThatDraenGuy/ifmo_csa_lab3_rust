@@ -1,0 +1,2 @@
+enum-variant-name-threshold = 1
+single-char-binding-names-threshold = 3

@@ -61,7 +61,7 @@ fn perform_test(temp_dir: &TempDir, input_path: &Path) -> Result<TestOutput, Box
 fn test() {
     // Создаём одну временную директорию для всех файлов
     let dir = tempdir().unwrap();
-    glob!("inputs/*.ron", |input_path| {
+    glob!("inputs/*.yml", |input_path| {
         // Проходимся по всем файлам с входными данными и для каждого из них создаём снапшот
         let result = perform_test(&dir, input_path).unwrap();
         assert_ron_snapshot!(result);

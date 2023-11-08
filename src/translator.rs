@@ -1,4 +1,12 @@
-#[allow(unused_variables)] // Проект является шаблоном. Данный макрос должен быть удалён в имплементации
-pub fn main(source_file: String, target_file: String) {
+use std::path::Path;
+
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum TranslatorError {
+    // todo
+}
+
+pub fn main(source_path: &Path, target_path: &Path) -> Result<(), TranslatorError> {
     todo!()
 }

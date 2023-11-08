@@ -1,4 +1,12 @@
-#[allow(dead_code)] // Проект является шаблоном. Данный макрос должен быть удалён в имплементации
+use std::path::Path;
+
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum MachineError {
+    // todo
+}
+
 struct DataPath {
     // todo
 }
@@ -7,7 +15,6 @@ impl DataPath {
     // todo
 }
 
-#[allow(dead_code)] // Проект является шаблоном. Данный макрос должен быть удалён в имплементации
 struct ControlUnit {
     // todo
 }
@@ -16,7 +23,6 @@ impl ControlUnit {
     // todo
 }
 
-#[allow(unused_variables)] // Проект является шаблоном. Данный макрос должен быть удалён в имплементации
-pub fn main(code_file: String, input_file: String) {
+pub fn main(code_path: &Path, input_path: &Path) -> Result<(), MachineError> {
     todo!()
 }

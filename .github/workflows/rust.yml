@@ -6,6 +6,9 @@ on:
     pull_request:
         branches: [ "master", "workflow" ]
 
+env:
+  CI: true        
+
 jobs:
     format:
         runs-on: ubuntu-latest

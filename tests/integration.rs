@@ -6,7 +6,7 @@ use std::{
 };
 
 use gag::BufferRedirect;
-use insta::{assert_ron_snapshot, glob};
+use insta::{assert_snapshot, glob};
 use lab3_rust::{machine, translator};
 use serde::{Deserialize, Serialize};
 use tempfile::{tempdir, TempDir};
@@ -17,13 +17,13 @@ struct TestInput {
     machine_input: String,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 struct TestOutput {
-    translator_output: String,
-    stdout: String,
+    pub translator_output: String,
+    pub stdout: String,
 }
 
-fn perform_test(temp_dir: &TempDir, input_path: &Path) -> Result<TestOutput, Box<dyn Error>> {
+fn perform_test(temp_dir: &TempDir, input_path: &Path) -> Result<String, Box<dyn Error>> {
     // Достаём имя теста
     let test_name = input_path.file_stem().unwrap().to_str().unwrap();
 
@@ -54,7 +54,11 @@ fn perform_test(temp_dir: &TempDir, input_path: &Path) -> Result<TestOutput, Box
     let translator_output = fs::read_to_string(target)?;
 
     //Возвращаем результат
-    Ok(TestOutput { translator_output, stdout })
+    let output = TestOutput { translator_output, stdout };
+
+    // Сериализуем в yaml "ручками" вместо использования assert_yaml_snapshot
+    // чтобы получить развёрнутый вариант длинных строк
+    Ok(serde_yaml::to_string(&output)?)
 }
 
 #[test]
@@ -64,6 +68,6 @@ fn test() {
     glob!("inputs/*.yml", |input_path| {
         // Проходимся по всем файлам с входными данными и для каждого из них создаём снапшот
         let result = perform_test(&dir, input_path).unwrap();
-        assert_ron_snapshot!(result);
+        assert_snapshot!(result);
     })
 }

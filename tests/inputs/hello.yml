@@ -1,0 +1,14 @@
+translator_input: |-
+  hello: word "Hello"
+
+  start: 
+    mov edx, hello
+    mov ecx, [edx]
+  loop:
+    inc edx
+    mov eax, [edx]
+    syswrite
+    dec ecx
+    jnz loop
+
+machine_input: foo

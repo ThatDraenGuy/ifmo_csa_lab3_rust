@@ -1,0 +1,35 @@
+---
+source: tests/integration.rs
+expression: result
+input_file: tests/inputs/hello.yml
+---
+translator_output: |-
+  (
+      code: [
+          Data(U32(5)),
+          Data(Char('H')),
+          Data(Char('e')),
+          Data(Char('l')),
+          Data(Char('l')),
+          Data(Char('o')),
+          OpCode(Move),
+          OpArg(RegisterId(Data)),
+          OpArg(MemoryAddress(1)),
+          OpCode(Move),
+          OpArg(RegisterId(Count)),
+          OpArg(MemoryByRegister(Data)),
+          OpCode(Increment),
+          OpArg(RegisterId(Data)),
+          OpCode(Move),
+          OpArg(RegisterId(Accumulator)),
+          OpArg(MemoryByRegister(Data)),
+          OpCode(SysWrite),
+          OpCode(Decrement),
+          OpArg(RegisterId(Count)),
+          OpCode(JumpIfNotZero),
+          OpArg(MemoryAddress(13)),
+      ],
+      entrypoint: 7,
+  )
+stdout: ''
+

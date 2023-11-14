@@ -1,0 +1,9 @@
+translator_input: |-
+  start: 
+    sysread
+    jz end
+    syswrite
+    jump start
+  end:
+
+machine_input: foo

@@ -1,0 +1,19 @@
+---
+source: tests/integration.rs
+expression: result
+input_file: tests/inputs/cat.yml
+---
+translator_output: |-
+  (
+      code: [
+          OpCode(SysRead),
+          OpCode(JumpIfZero),
+          OpArg(MemoryAddress(7)),
+          OpCode(SysWrite),
+          OpCode(Jump),
+          OpArg(MemoryAddress(1)),
+      ],
+      entrypoint: 1,
+  )
+stdout: ''
+

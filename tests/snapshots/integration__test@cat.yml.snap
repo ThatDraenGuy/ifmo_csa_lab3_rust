@@ -6,14 +6,31 @@ input_file: tests/inputs/cat.yml
 translator_output: |-
   (
       code: [
-          OpCode(SysRead),
-          OpCode(JumpIfZero),
-          OpArg(MemoryAddress(7)),
-          OpCode(SysWrite),
-          OpCode(Jump),
-          OpArg(MemoryAddress(1)),
+          OpHigher(Io((
+              opcode: In,
+              arg: 1,
+          ))),
+          OpHigher(Branch((
+              opcode: Jz,
+              arg_higher: 0,
+          ))),
+          OpLower(BranchOpLower((
+              arg_lower: 7,
+          ))),
+          OpHigher(Io((
+              opcode: Out,
+              arg: 1,
+          ))),
+          OpHigher(Branch((
+              opcode: Jmp,
+              arg_higher: 0,
+          ))),
+          OpLower(BranchOpLower((
+              arg_lower: 1,
+          ))),
+          OpHigher(Control((Exit))),
       ],
-      entrypoint: 1,
+      entrypoint: (1),
   )
 stdout: ''
 

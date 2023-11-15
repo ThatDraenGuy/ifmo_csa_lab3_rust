@@ -1,0 +1,89 @@
+---
+source: tests/integration.rs
+expression: result
+input_file: tests/inputs/prob2.yml
+---
+translator_output: |-
+  (
+      code: [
+          Data((1)),
+          Data((2)),
+          OpHigher(Math((
+              opcode: Mov,
+              args: RegImmed(Count, 0),
+          ))),
+          OpLower(MathOpLower(RegImmed(4))),
+          OpHigher(Math((
+              opcode: Mov,
+              args: RegImmed(Accumulator, 0),
+          ))),
+          OpLower(MathOpLower(RegImmed(2))),
+          OpHigher(Math((
+              opcode: Mov,
+              args: RegToReg(Data, Accumulator),
+          ))),
+          OpHigher(Math((
+              opcode: Add,
+              args: RegToMem(Accumulator, 0),
+          ))),
+          OpLower(MathOpLower(RegToMem(1))),
+          OpHigher(Math((
+              opcode: Mov,
+              args: MemToReg(Data, 0),
+          ))),
+          OpLower(MathOpLower(MemToReg(1))),
+          OpHigher(Alter((
+              opcode: Dec,
+              arg: Count,
+          ))),
+          OpHigher(Branch((
+              opcode: Jnz,
+              arg_higher: 0,
+          ))),
+          OpLower(BranchOpLower((
+              arg_lower: 7,
+          ))),
+          OpHigher(Math((
+              opcode: Mov,
+              args: RegImmed(Count, 0),
+          ))),
+          OpLower(MathOpLower(RegImmed(4))),
+          OpHigher(Math((
+              opcode: Cmp,
+              args: RegImmed(Accumulator, 61),
+          ))),
+          OpLower(MathOpLower(RegImmed(2304))),
+          OpHigher(Branch((
+              opcode: Jns,
+              arg_higher: 0,
+          ))),
+          OpLower(BranchOpLower((
+              arg_lower: 25,
+          ))),
+          OpHigher(Math((
+              opcode: Add,
+              args: MemToReg(Accumulator, 0),
+          ))),
+          OpLower(MathOpLower(MemToReg(2))),
+          OpHigher(Branch((
+              opcode: Jmp,
+              arg_higher: 0,
+          ))),
+          OpLower(BranchOpLower((
+              arg_lower: 7,
+          ))),
+          OpHigher(Math((
+              opcode: Mov,
+              args: RegToMem(Accumulator, 0),
+          ))),
+          OpLower(MathOpLower(RegToMem(2))),
+          OpHigher(Io((
+              opcode: Out,
+              arg: 1,
+          ))),
+          OpHigher(Control((Exit))),
+      ],
+      entrypoint: (3),
+  )
+stdout: ''
+

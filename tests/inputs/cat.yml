@@ -1,9 +1,10 @@
 translator_input: |-
   start: 
-    sysread
+    in 1
     jz end
-    syswrite
-    jump start
+    out 1
+    jmp start
   end:
+    exit
 
 machine_input: foo

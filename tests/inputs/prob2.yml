@@ -1,0 +1,27 @@
+translator_input: |-
+  num: word 1
+  result: word 2
+
+  start:
+    mov ecx, 4
+    mov eax, 2
+  loop:
+    mov edx, eax
+    add eax, [num]
+    mov [num], edx
+    dec ecx
+    jnz loop
+    mov ecx, 4
+    cmp eax, 4000000
+    jns end
+    add [result], eax
+    jmp loop
+
+  end:
+    mov eax, [result]
+    out 1
+    exit
+
+
+
+machine_input: foo

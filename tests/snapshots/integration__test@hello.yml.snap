@@ -6,30 +6,47 @@ input_file: tests/inputs/hello.yml
 translator_output: |-
   (
       code: [
-          Data(U32(5)),
-          Data(Char('H')),
-          Data(Char('e')),
-          Data(Char('l')),
-          Data(Char('l')),
-          Data(Char('o')),
-          OpCode(Move),
-          OpArg(RegisterId(Data)),
-          OpArg(MemoryAddress(1)),
-          OpCode(Move),
-          OpArg(RegisterId(Count)),
-          OpArg(MemoryByRegister(Data)),
-          OpCode(Increment),
-          OpArg(RegisterId(Data)),
-          OpCode(Move),
-          OpArg(RegisterId(Accumulator)),
-          OpArg(MemoryByRegister(Data)),
-          OpCode(SysWrite),
-          OpCode(Decrement),
-          OpArg(RegisterId(Count)),
-          OpCode(JumpIfNotZero),
-          OpArg(MemoryAddress(13)),
+          Data((5)),
+          Data((72)),
+          Data((101)),
+          Data((108)),
+          Data((108)),
+          Data((111)),
+          OpHigher(Math((
+              opcode: Mov,
+              args: RegImmed(Data, 0),
+          ))),
+          OpLower(MathOpLower(RegImmed(1))),
+          OpHigher(Math((
+              opcode: Mov,
+              args: RegToRegMem(Count, Data),
+          ))),
+          OpHigher(Alter((
+              opcode: Inc,
+              arg: Data,
+          ))),
+          OpHigher(Math((
+              opcode: Mov,
+              args: RegToRegMem(Accumulator, Data),
+          ))),
+          OpHigher(Io((
+              opcode: Out,
+              arg: 1,
+          ))),
+          OpHigher(Alter((
+              opcode: Dec,
+              arg: Count,
+          ))),
+          OpHigher(Branch((
+              opcode: Jnz,
+              arg_higher: 0,
+          ))),
+          OpLower(BranchOpLower((
+              arg_lower: 10,
+          ))),
+          OpHigher(Control((Exit))),
       ],
-      entrypoint: 7,
+      entrypoint: (7),
   )
 stdout: ''
 

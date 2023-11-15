@@ -1,8 +1,11 @@
-use std::{collections::HashMap, fs, path::Path};
+use std::{collections::HashMap, fs, marker::PhantomData, path::Path};
 
 use thiserror::Error;
 
-use crate::isa::{self, Data, MachineWord, MemoryAddress, OpArg, OpArgNum, OpCode, Program};
+use crate::isa::{
+    self, Immed, Instruction, InstructionTrait, MachineWord, MemoryAddress, OpArg, OpArgBatch,
+    OpArgNum, Program,
+};
 
 #[derive(Error, Debug)]
 pub enum TranslatorError {
@@ -14,43 +17,57 @@ pub enum TranslatorError {
     EndOfInput,
     #[error("Encuntered unrecognizable token")]
     UnknownToken,
-    #[error("Encountered unexpected token")]
-    UnexpectedToken,
+    #[error("Encountered unexpected token; expected {expected:?}, found {found:?}")]
+    UnexpectedToken { expected: String, found: String },
     #[error("Encountered duplicate label")]
     DuplicateLabel,
+    #[error("Encountered invalid label")]
+    InvalidLabel,
     #[error("Encountered unresolved label")]
     UnresolvedLabel,
     #[error("Entrypoint is missing")]
     EntrypointMissing,
     #[error("Encountered invalid args combination")]
     InvalidArgsCombination,
+    #[error("Encountered too long of a string")]
+    StringIsTooLong,
 }
 
 // Ключевые слова, не транслирующиеся в машинные команды
+#[derive(Debug)]
 enum TranslatorDirective {
-    Word, // Директива для записи литералов в память
+    Word, // Директива для записи литералов и значений в память
 }
 
-type Label = String;
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+struct Label(String);
 
-// Токен транслятора
-enum Token {
-    TranslatorDirective(TranslatorDirective),
-    OpCode(OpCode),
-    OpArg(OpArg),
-    LabelDef(Label),
-    LabelRef(Label),
-    Literal(String),
-}
+impl TryFrom<&str> for Label {
+    type Error = TranslatorError;
 
-impl Token {
-    fn try_into_literal(self) -> Result<String, TranslatorError> {
-        if let Self::Literal(v) = self {
-            Ok(v)
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        if value.chars().all(|c| c.is_ascii_lowercase()) {
+            Ok(Self(value.to_owned()))
         } else {
-            Err(TranslatorError::UnexpectedToken)
+            Err(TranslatorError::InvalidLabel)
         }
     }
+}
+
+impl PartialEq<str> for Label {
+    fn eq(&self, other: &str) -> bool {
+        self.0 == other
+    }
+}
+
+// Токен транслятора
+#[derive(Debug)]
+enum Token {
+    TranslatorDirective(TranslatorDirective),
+    Instruction(Instruction),
+    Operand(Operand),
+    LabelDef(Label),
+    Literal(String),
 }
 
 impl TryFrom<&str> for Token {
@@ -59,47 +76,81 @@ impl TryFrom<&str> for Token {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         if value == "word" {
             Ok(Self::TranslatorDirective(TranslatorDirective::Word))
-        } else if let Ok(operation) = OpCode::try_from(value) {
-            Ok(Self::OpCode(operation))
-        } else if let Ok(argument) = OpArg::try_from(value) {
-            Ok(Self::OpArg(argument))
-        } else if let Some(label) = value.strip_suffix(':') {
-            Ok(Self::LabelDef(label.to_owned()))
+        } else if let Ok(instruction) = Instruction::try_from(value) {
+            Ok(Self::Instruction(instruction))
+        } else if let Ok(operand) = Operand::try_from(value) {
+            Ok(Self::Operand(operand))
+        } else if let Some(label) =
+            value.strip_suffix(':').map(Label::try_from).and_then(Result::ok)
+        {
+            Ok(Self::LabelDef(label)) //TODO validate label
         } else if value.starts_with('"') && value.ends_with('"') {
             Ok(Self::Literal(value[1..value.len() - 1].to_owned()))
-        } else if value.chars().all(|c| c.is_ascii_lowercase()) {
-            Ok(Self::LabelRef(value.to_owned()))
         } else {
             Err(TranslatorError::UnknownToken)
         }
     }
 }
 
-// Тип для хранения машинного слова или плэйсхолдера с меткой
-enum TranslatorWord {
-    MachineWord(MachineWord),
-    LabelPlaceholder(Label),
+#[derive(Debug)]
+enum Operand {
+    OpArg(OpArg),
+    LabelRef(Label),
+    MemLabelRef(Label),
 }
 
-impl From<MachineWord> for TranslatorWord {
-    fn from(value: MachineWord) -> Self {
-        Self::MachineWord(value)
+impl Operand {
+    pub fn into_placeholder_arg(self) -> OpArg {
+        match self {
+            Operand::OpArg(arg) => arg,
+            Operand::LabelRef(_) => OpArg::Immed(Immed::null()),
+            Operand::MemLabelRef(_) => OpArg::Mem(MemoryAddress::null()),
+        }
+    }
+
+    pub fn into_arg(
+        self,
+        builder: &ProgramBuilder<LabelsResolved>,
+    ) -> Result<OpArg, TranslatorError> {
+        match self {
+            Operand::OpArg(arg) => Ok(arg),
+            Operand::LabelRef(label) => {
+                Ok(OpArg::Immed(builder.get_label(&label).map(MemoryAddress::into)?))
+            },
+            Operand::MemLabelRef(label) => Ok(OpArg::Mem(builder.get_label(&label)?)),
+        }
+    }
+
+    fn try_into_op_arg(self) -> Result<OpArg, TranslatorError> {
+        match self {
+            Operand::OpArg(arg) => Ok(arg),
+            Operand::LabelRef(label) | Operand::MemLabelRef(label) => {
+                Err(TranslatorError::UnexpectedToken {
+                    expected: "OpArg".to_owned(),
+                    found: format!("Label \"{:?}\"", label),
+                })
+            },
+        }
     }
 }
 
-impl From<Label> for TranslatorWord {
-    fn from(value: Label) -> Self {
-        Self::LabelPlaceholder(value)
-    }
-}
-
-impl TryFrom<TranslatorWord> for MachineWord {
+impl TryFrom<&str> for Operand {
     type Error = TranslatorError;
 
-    fn try_from(value: TranslatorWord) -> Result<Self, Self::Error> {
-        match value {
-            TranslatorWord::MachineWord(word) => Ok(word),
-            TranslatorWord::LabelPlaceholder(_) => Err(TranslatorError::UnresolvedLabel),
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        if let Ok(arg) = OpArg::try_from(value) {
+            Ok(Self::OpArg(arg))
+        } else if let Ok(label) = Label::try_from(value) {
+            Ok(Self::LabelRef(label))
+        } else if let Some(label) = value
+            .strip_prefix('[')
+            .and_then(|value| value.strip_suffix(']'))
+            .map(Label::try_from)
+            .and_then(Result::ok)
+        {
+            Ok(Self::MemLabelRef(label))
+        } else {
+            Err(TranslatorError::UnknownToken)
         }
     }
 }
@@ -128,70 +179,97 @@ impl<'a> TokenIterator<'a> {
         if str.ends_with(suffix) {
             str[0..str.len() - 1].try_into()
         } else {
-            Err(TranslatorError::UnexpectedToken)
+            Err(TranslatorError::UnexpectedToken {
+                expected: format!("Token with suffix {}", suffix),
+                found: str.to_owned(),
+            })
         }
     }
 }
 
+// ProgramBuilder state space START
 #[derive(Default)]
-struct ProgramBuilder {
+struct LabelsUnresolved;
+struct LabelsResolved;
+// ProgramBuilder state space END
+
+#[derive(Default)]
+struct ProgramBuilder<T> {
     labels: HashMap<Label, MemoryAddress>,
     current_address: MemoryAddress,
-    machine_code: Vec<TranslatorWord>,
-    entrypoint: Option<MemoryAddress>,
+    machine_code: Vec<MachineWord>,
+    entrypoint: MemoryAddress,
+    phantom: PhantomData<T>,
 }
 
-impl ProgramBuilder {
+impl ProgramBuilder<LabelsUnresolved> {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn add_word<T: Into<TranslatorWord>>(&mut self, word: T) {
-        self.machine_code.push(word.into());
-        self.current_address += 1;
+    pub fn move_address(&mut self, count: u32) {
+        self.current_address.add(count);
     }
 
-    pub fn add_label(&mut self, label: &str) -> Result<(), TranslatorError> {
+    pub fn add_label(&mut self, label: &Label) -> Result<(), TranslatorError> {
         if self.labels.contains_key(label) {
             Err(TranslatorError::DuplicateLabel)
         } else {
-            self.labels.insert(label.to_owned(), self.current_address + 1);
+            let mut label_address = self.current_address.clone();
+            label_address.add(1);
+            self.labels.insert(label.to_owned(), label_address.clone());
             if label == "start" {
-                self.entrypoint = Some(self.current_address + 1);
+                self.entrypoint = label_address;
             }
             Ok(())
         }
     }
 
-    pub fn build(self) -> Result<Program, TranslatorError> {
-        let code = self
-            .machine_code
-            .into_iter()
-            .map(|word| match word {
-                TranslatorWord::MachineWord(word) => Ok(word),
-                TranslatorWord::LabelPlaceholder(placeholder) => {
-                    if let Some(address) = self.labels.get(&placeholder) {
-                        Ok(MachineWord::OpArg(OpArg::MemoryAddress(*address)))
-                    } else {
-                        Err(TranslatorError::UnresolvedLabel)
-                    }
-                },
-            })
-            .collect::<Result<Vec<MachineWord>, TranslatorError>>()?;
+    pub fn finalize_labels(self) -> Result<ProgramBuilder<LabelsResolved>, TranslatorError> {
+        if self.entrypoint == MemoryAddress::null() {
+            return Err(TranslatorError::EntrypointMissing);
+        }
+        Ok(ProgramBuilder {
+            labels: self.labels,
+            current_address: MemoryAddress::null(),
+            machine_code: self.machine_code,
+            entrypoint: self.entrypoint,
+            phantom: PhantomData,
+        })
+    }
+}
 
-        let entrypoint = self.entrypoint.ok_or(TranslatorError::EntrypointMissing)?;
-        Ok(Program::new(code, entrypoint))
+impl ProgramBuilder<LabelsResolved> {
+    pub fn add_word(&mut self, word: MachineWord) {
+        self.machine_code.push(word);
+        self.current_address.add(1);
+    }
+
+    pub fn add_words(&mut self, words: (MachineWord, Option<MachineWord>)) {
+        self.add_word(words.0);
+
+        if let Some(word) = words.1 {
+            self.add_word(word);
+        }
+    }
+
+    pub fn get_label(&self, label: &Label) -> Result<MemoryAddress, TranslatorError> {
+        self.labels.get(label).cloned().ok_or(TranslatorError::UnresolvedLabel)
+    }
+
+    pub fn build(self) -> Result<Program, TranslatorError> {
+        Ok(Program::new(self.machine_code, self.entrypoint))
     }
 }
 
 struct Translator;
 impl Translator {
     pub fn translate(source_path: &Path, target_path: &Path) -> Result<(), TranslatorError> {
-        let mut builder = ProgramBuilder::new();
+        let builder = ProgramBuilder::new();
         let tokens = Self::read_tokens(source_path)?;
-        let mut iter = TokenIterator::new(&tokens);
 
-        Self::perform_translation(&mut builder, &mut iter)?;
+        let mut builder = Self::resolve_labels(builder, &mut TokenIterator::new(&tokens))?;
+        Self::perform_translation(&mut builder, &mut TokenIterator::new(&tokens))?;
         let program = builder.build()?;
 
         Ok(program.write_to_file(target_path)?)
@@ -204,113 +282,187 @@ impl Translator {
         Ok(tokens)
     }
 
+    fn resolve_labels(
+        mut builder: ProgramBuilder<LabelsUnresolved>,
+        iter: &mut TokenIterator,
+    ) -> Result<ProgramBuilder<LabelsResolved>, TranslatorError> {
+        while let Ok(raw_token) = iter.next_str() {
+            match Token::try_from(raw_token)? {
+                Token::TranslatorDirective(directive) => {
+                    Self::calculate_directive(&mut builder, directive, iter)
+                },
+                Token::Instruction(instruction) => {
+                    Self::calculate_instruction(&mut builder, instruction, iter)
+                },
+                Token::LabelDef(label) => builder.add_label(&label),
+                Token::Operand(operand) => Err(TranslatorError::UnexpectedToken {
+                    expected: "Directive, label def or instruction".to_owned(),
+                    found: format!("Operand: {:?}", operand),
+                }),
+                Token::Literal(literal) => Err(TranslatorError::UnexpectedToken {
+                    expected: "Directive, label def or instruction".to_owned(),
+                    found: format!("Literal: {}", literal),
+                }),
+            }?;
+        }
+        builder.finalize_labels()
+    }
+
     fn perform_translation(
-        builder: &mut ProgramBuilder,
+        builder: &mut ProgramBuilder<LabelsResolved>,
         iter: &mut TokenIterator,
     ) -> Result<(), TranslatorError> {
         while let Ok(raw_token) = iter.next_str() {
             match Token::try_from(raw_token)? {
                 Token::TranslatorDirective(directive) => {
-                    Self::resolve_directive(builder, directive, iter)
+                    Self::handle_directive(builder, directive, iter)
                 },
-                Token::OpCode(operation) => Self::resolve_operation(builder, operation, iter),
-                Token::LabelDef(label) => Self::resolve_label(builder, label.as_str()),
-                _ => Err(TranslatorError::UnexpectedToken),
+                Token::Instruction(instruction) => {
+                    Self::handle_instruction(builder, instruction, iter)
+                },
+                Token::LabelDef(_) => Ok(()),
+                Token::Operand(operand) => Err(TranslatorError::UnexpectedToken {
+                    expected: "Directive, label def or instruction".to_owned(),
+                    found: format!("Operand: {:?}", operand),
+                }),
+                Token::Literal(literal) => Err(TranslatorError::UnexpectedToken {
+                    expected: "Directive, label def or instruction".to_owned(),
+                    found: format!("Literal: {}", literal),
+                }),
             }?;
         }
         Ok(())
     }
 
-    fn resolve_label(builder: &mut ProgramBuilder, label: &str) -> Result<(), TranslatorError> {
-        builder.add_label(label)
-    }
-
-    fn resolve_directive(
-        builder: &mut ProgramBuilder,
+    fn calculate_directive(
+        builder: &mut ProgramBuilder<LabelsUnresolved>,
         directive: TranslatorDirective,
         iter: &mut TokenIterator,
     ) -> Result<(), TranslatorError> {
         match directive {
-            TranslatorDirective::Word => {
-                let value = iter.next_token()?.try_into_literal()?;
-                builder.add_word(MachineWord::Data(Data::U32(value.len().try_into().unwrap())));
-                for char in value.chars() {
-                    builder.add_word(MachineWord::Data(Data::Char(char)))
-                }
-                Ok(())
+            TranslatorDirective::Word => match iter.next_token()? {
+                Token::Operand(value) => match value.try_into_op_arg()? {
+                    OpArg::Immed(_) => {
+                        builder.move_address(1);
+                        Ok(())
+                    },
+                    arg => Err(TranslatorError::UnexpectedToken {
+                        expected: "Word".to_owned(),
+                        found: format!("{:?}", arg),
+                    }),
+                },
+                Token::Literal(value) => {
+                    let length: u32 =
+                        value.len().try_into().map_err(|_| TranslatorError::StringIsTooLong)?;
+                    builder.move_address(1 + length);
+                    Ok(())
+                },
+                token => Err(TranslatorError::UnexpectedToken {
+                    expected: "Word".to_owned(),
+                    found: format!("{:?}", token),
+                }),
             },
         }
     }
 
-    fn resolve_operation(
-        builder: &mut ProgramBuilder,
-        operation: OpCode,
+    fn handle_directive(
+        builder: &mut ProgramBuilder<LabelsResolved>,
+        directive: TranslatorDirective,
         iter: &mut TokenIterator,
     ) -> Result<(), TranslatorError> {
-        // Добавляем код операции
-        builder.add_word(MachineWord::OpCode(operation.clone()));
-
-        // Добавляем аргументы операции (если они есть)
-        match operation.args_num() {
-            OpArgNum::Zero => Ok(()),
-            OpArgNum::One => match iter.next_token()? {
-                Token::OpArg(arg) => match arg {
-                    OpArg::RegisterId(_) => {
-                        builder.add_word(MachineWord::OpArg(arg));
+        match directive {
+            TranslatorDirective::Word => match iter.next_token()? {
+                Token::Operand(value) => match value.try_into_op_arg()? {
+                    OpArg::Immed(value) => {
+                        builder.add_word(MachineWord::Data(value));
                         Ok(())
                     },
-                    _ => Err(TranslatorError::UnexpectedToken),
+                    arg => Err(TranslatorError::UnexpectedToken {
+                        expected: "Word".to_owned(),
+                        found: format!("{:?}", arg),
+                    }),
                 },
-                Token::LabelRef(label) => {
-                    builder.add_word(label);
+                Token::Literal(value) => {
+                    let length: u32 =
+                        value.len().try_into().map_err(|_| TranslatorError::StringIsTooLong)?;
+                    builder.add_word(MachineWord::Data(Immed::from(length)));
+                    for char in value.chars() {
+                        builder.add_word(MachineWord::Data(Immed::from(char)))
+                    }
                     Ok(())
                 },
-                _ => Err(TranslatorError::UnexpectedToken),
+                token => Err(TranslatorError::UnexpectedToken {
+                    expected: "Word".to_owned(),
+                    found: format!("{:?}", token),
+                }),
             },
-            OpArgNum::Two => {
-                let first = iter.next_token_with_suffix(',')?;
-                let second = iter.next_token()?;
+        }
+    }
 
-                match (first, second) {
-                    (Token::OpArg(first), Token::OpArg(second)) => {
-                        // невозможно записать результат в литерал
-                        // не поддерживаем операции с двумя обращениями к памяти
-                        if first.is_arg_literal()
-                            || first.is_memory_dependent() && second.is_memory_dependent()
-                        {
-                            Err(TranslatorError::InvalidArgsCombination)
-                        } else {
-                            builder.add_word(MachineWord::OpArg(first));
-                            builder.add_word(MachineWord::OpArg(second));
-                            Ok(())
-                        }
-                    },
-                    (Token::OpArg(arg), Token::LabelRef(label)) => {
-                        // невозможно записать результат в литерал
-                        if arg.is_arg_literal() {
-                            Err(TranslatorError::InvalidArgsCombination)
-                        } else {
-                            builder.add_word(MachineWord::OpArg(arg));
-                            builder.add_word(label);
-                            Ok(())
-                        }
-                    },
-                    // (Token::LabelRef(label), Token::OpArg(arg)) => {
-                    //     // не поддерживаем операции с двумя обращениями к памяти
-                    //     if arg.is_memory_dependent() {
-                    //         Err(TranslatorError::InvalidArgsCombination)
-                    //     } else {
-                    //         builder.add_word(label);
-                    //         builder.add_word(MachineWord::OpArg(arg));
-                    //         Ok(())
-                    //     }
-                    // },
-                    // (Token::LabelRef(_), Token::LabelRef(_)) => {
-                    //     // не поддерживаем операции с двумя обращениями к памяти
-                    //     Err(TranslatorError::InvalidArgsCombination)
-                    // },
-                    _ => Err(TranslatorError::UnexpectedToken),
-                }
+    fn calculate_instruction(
+        builder: &mut ProgramBuilder<LabelsUnresolved>,
+        instruction: Instruction,
+        iter: &mut TokenIterator,
+    ) -> Result<(), TranslatorError> {
+        let words_num = match instruction.args_num() {
+            OpArgNum::Zero => Ok(instruction.words_num(OpArgBatch::Zero)?),
+            OpArgNum::One => match iter.next_token()? {
+                Token::Operand(operand) => {
+                    Ok(instruction.words_num(OpArgBatch::One(operand.into_placeholder_arg()))?)
+                },
+                token => Err(TranslatorError::UnexpectedToken {
+                    expected: "Operand".to_owned(),
+                    found: format!("{:?}", token),
+                }),
+            },
+            OpArgNum::Two => match (iter.next_token_with_suffix(',')?, iter.next_token()?) {
+                (Token::Operand(first), Token::Operand(second)) => Ok(instruction.words_num(
+                    OpArgBatch::Two(first.into_placeholder_arg(), second.into_placeholder_arg()),
+                )?),
+                (fst, snd) => Err(TranslatorError::UnexpectedToken {
+                    expected: "Operand pair".to_owned(),
+                    found: format!("{:?}, {:?}", fst, snd),
+                }),
+            },
+        }?;
+        builder.move_address(words_num);
+        Ok(())
+    }
+
+    fn handle_instruction(
+        builder: &mut ProgramBuilder<LabelsResolved>,
+        instruction: Instruction,
+        iter: &mut TokenIterator,
+    ) -> Result<(), TranslatorError> {
+        match instruction.args_num() {
+            OpArgNum::Zero => {
+                builder.add_words(instruction.into_words(OpArgBatch::Zero)?);
+                Ok(())
+            },
+            OpArgNum::One => match iter.next_token()? {
+                Token::Operand(operand) => {
+                    builder.add_words(
+                        instruction.into_words(OpArgBatch::One(operand.into_arg(builder)?))?,
+                    );
+                    Ok(())
+                },
+                token => Err(TranslatorError::UnexpectedToken {
+                    expected: "Operand".to_owned(),
+                    found: format!("{:?}", token),
+                }),
+            },
+            OpArgNum::Two => match (iter.next_token_with_suffix(',')?, iter.next_token()?) {
+                (Token::Operand(first), Token::Operand(second)) => {
+                    builder.add_words(instruction.into_words(OpArgBatch::Two(
+                        first.into_arg(builder)?,
+                        second.into_arg(builder)?,
+                    ))?);
+                    Ok(())
+                },
+                (fst, snd) => Err(TranslatorError::UnexpectedToken {
+                    expected: "Operand pair".to_owned(),
+                    found: format!("{:?}, {:?}", fst, snd),
+                }),
             },
         }
     }

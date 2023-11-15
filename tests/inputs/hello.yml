@@ -7,8 +7,9 @@ translator_input: |-
   loop:
     inc edx
     mov eax, [edx]
-    syswrite
+    out 1
     dec ecx
     jnz loop
+    exit
 
 machine_input: foo

@@ -18,7 +18,7 @@ impl DataPath {
 }
 
 struct ControlUnit {
-    // todo
+    datapath: DataPath, // todo
 }
 
 impl ControlUnit {

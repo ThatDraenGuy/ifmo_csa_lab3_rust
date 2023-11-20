@@ -1,6 +1,7 @@
 translator_input: |-
   start: 
-    in 1
+    in 0
+    cmp eax, 0
     jz end
     out 1
     jmp start

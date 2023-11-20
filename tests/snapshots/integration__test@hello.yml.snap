@@ -19,7 +19,7 @@ translator_output: |-
           OpLower(MathOpLower(RegImmed(1))),
           OpHigher(Math((
               opcode: Mov,
-              args: RegToRegMem(Count, Data),
+              args: RegMemToReg(Count, Data),
           ))),
           OpHigher(Alter((
               opcode: Inc,
@@ -27,7 +27,7 @@ translator_output: |-
           ))),
           OpHigher(Math((
               opcode: Mov,
-              args: RegToRegMem(Accumulator, Data),
+              args: RegMemToReg(Accumulator, Data),
           ))),
           OpHigher(Io((
               opcode: Out,
@@ -48,5 +48,130 @@ translator_output: |-
       ],
       entrypoint: (7),
   )
-stdout: ''
+translator_result: OK
+stdout: Hello
+machine_result: OK
+log: |
+  [DEBUG lab3_rust::translator] Starting translation process
+  [DEBUG lab3_rust::translator] Successfully finished translation process
+  [DEBUG lab3_rust::machine] Starting virtual machine
+  [DEBUG lab3_rust::machine] TICK:    0; REGS: eax:   0, ecx:   0, edx:   0, eip:   7, esp:   0; STATE: InF; INSTR: Empty
+  [DEBUG lab3_rust::machine] TICK:    1; REGS: eax:   0, ecx:   0, edx:   0, eip:   7, esp:   0; STATE: InD; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegImmed(Data, 0) }))
+  [DEBUG lab3_rust::machine] TICK:    2; REGS: eax:   0, ecx:   0, edx:   0, eip:   7, esp:   0; STATE: OPF; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegImmed(Data, 0) }))
+  [DEBUG lab3_rust::machine] TICK:    3; REGS: eax:   0, ecx:   0, edx:   0, eip:   8, esp:   0; STATE: OnF; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegImmed(Data, 0) }))
+  [DEBUG lab3_rust::machine] TICK:    4; REGS: eax:   0, ecx:   0, edx:   0, eip:   8, esp:   0; STATE: InE; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegImmed(Data, 0) }))
+  [DEBUG lab3_rust::machine] TICK:    5; REGS: eax:   0, ecx:   0, edx:   1, eip:   8, esp:   0; STATE: IPF; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegImmed(Data, 0) }))
+  [DEBUG lab3_rust::machine] TICK:    6; REGS: eax:   0, ecx:   0, edx:   1, eip:   9, esp:   0; STATE: InF; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegImmed(Data, 0) }))
+  [DEBUG lab3_rust::machine] TICK:    7; REGS: eax:   0, ecx:   0, edx:   1, eip:   9, esp:   0; STATE: InD; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Count, Data) }))
+  [DEBUG lab3_rust::machine] TICK:    8; REGS: eax:   0, ecx:   0, edx:   1, eip:   9, esp:   0; STATE: InE; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Count, Data) }))
+  [DEBUG lab3_rust::machine] TICK:    9; REGS: eax:   0, ecx:   5, edx:   1, eip:   9, esp:   0; STATE: IPF; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Count, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   10; REGS: eax:   0, ecx:   5, edx:   1, eip:  10, esp:   0; STATE: InF; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Count, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   11; REGS: eax:   0, ecx:   5, edx:   1, eip:  10, esp:   0; STATE: InD; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   12; REGS: eax:   0, ecx:   5, edx:   1, eip:  10, esp:   0; STATE: InE; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   13; REGS: eax:   0, ecx:   5, edx:   2, eip:  10, esp:   0; STATE: IPF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   14; REGS: eax:   0, ecx:   5, edx:   2, eip:  11, esp:   0; STATE: InF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   15; REGS: eax:   0, ecx:   5, edx:   2, eip:  11, esp:   0; STATE: InD; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   16; REGS: eax:   0, ecx:   5, edx:   2, eip:  11, esp:   0; STATE: InE; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   17; REGS: eax:  72, ecx:   5, edx:   2, eip:  11, esp:   0; STATE: IPF; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   18; REGS: eax:  72, ecx:   5, edx:   2, eip:  12, esp:   0; STATE: InF; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   19; REGS: eax:  72, ecx:   5, edx:   2, eip:  12, esp:   0; STATE: InD; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:   20; REGS: eax:  72, ecx:   5, edx:   2, eip:  12, esp:   0; STATE: InE; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:   21; REGS: eax:  72, ecx:   5, edx:   2, eip:  12, esp:   0; STATE: IPF; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:   22; REGS: eax:  72, ecx:   5, edx:   2, eip:  13, esp:   0; STATE: InF; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:   23; REGS: eax:  72, ecx:   5, edx:   2, eip:  13, esp:   0; STATE: InD; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:   24; REGS: eax:  72, ecx:   5, edx:   2, eip:  13, esp:   0; STATE: InE; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:   25; REGS: eax:  72, ecx:   4, edx:   2, eip:  13, esp:   0; STATE: IPF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:   26; REGS: eax:  72, ecx:   4, edx:   2, eip:  14, esp:   0; STATE: InF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:   27; REGS: eax:  72, ecx:   4, edx:   2, eip:  14, esp:   0; STATE: InD; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   28; REGS: eax:  72, ecx:   4, edx:   2, eip:  14, esp:   0; STATE: OPF; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   29; REGS: eax:  72, ecx:   4, edx:   2, eip:  15, esp:   0; STATE: OnF; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   30; REGS: eax:  72, ecx:   4, edx:   2, eip:  15, esp:   0; STATE: InE; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   31; REGS: eax:  72, ecx:   4, edx:   2, eip:  10, esp:   0; STATE: InF; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   32; REGS: eax:  72, ecx:   4, edx:   2, eip:  10, esp:   0; STATE: InD; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   33; REGS: eax:  72, ecx:   4, edx:   2, eip:  10, esp:   0; STATE: InE; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   34; REGS: eax:  72, ecx:   4, edx:   3, eip:  10, esp:   0; STATE: IPF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   35; REGS: eax:  72, ecx:   4, edx:   3, eip:  11, esp:   0; STATE: InF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   36; REGS: eax:  72, ecx:   4, edx:   3, eip:  11, esp:   0; STATE: InD; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   37; REGS: eax:  72, ecx:   4, edx:   3, eip:  11, esp:   0; STATE: InE; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   38; REGS: eax: 101, ecx:   4, edx:   3, eip:  11, esp:   0; STATE: IPF; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   39; REGS: eax: 101, ecx:   4, edx:   3, eip:  12, esp:   0; STATE: InF; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   40; REGS: eax: 101, ecx:   4, edx:   3, eip:  12, esp:   0; STATE: InD; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:   41; REGS: eax: 101, ecx:   4, edx:   3, eip:  12, esp:   0; STATE: InE; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:   42; REGS: eax: 101, ecx:   4, edx:   3, eip:  12, esp:   0; STATE: IPF; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:   43; REGS: eax: 101, ecx:   4, edx:   3, eip:  13, esp:   0; STATE: InF; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:   44; REGS: eax: 101, ecx:   4, edx:   3, eip:  13, esp:   0; STATE: InD; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:   45; REGS: eax: 101, ecx:   4, edx:   3, eip:  13, esp:   0; STATE: InE; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:   46; REGS: eax: 101, ecx:   3, edx:   3, eip:  13, esp:   0; STATE: IPF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:   47; REGS: eax: 101, ecx:   3, edx:   3, eip:  14, esp:   0; STATE: InF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:   48; REGS: eax: 101, ecx:   3, edx:   3, eip:  14, esp:   0; STATE: InD; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   49; REGS: eax: 101, ecx:   3, edx:   3, eip:  14, esp:   0; STATE: OPF; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   50; REGS: eax: 101, ecx:   3, edx:   3, eip:  15, esp:   0; STATE: OnF; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   51; REGS: eax: 101, ecx:   3, edx:   3, eip:  15, esp:   0; STATE: InE; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   52; REGS: eax: 101, ecx:   3, edx:   3, eip:  10, esp:   0; STATE: InF; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   53; REGS: eax: 101, ecx:   3, edx:   3, eip:  10, esp:   0; STATE: InD; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   54; REGS: eax: 101, ecx:   3, edx:   3, eip:  10, esp:   0; STATE: InE; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   55; REGS: eax: 101, ecx:   3, edx:   4, eip:  10, esp:   0; STATE: IPF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   56; REGS: eax: 101, ecx:   3, edx:   4, eip:  11, esp:   0; STATE: InF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   57; REGS: eax: 101, ecx:   3, edx:   4, eip:  11, esp:   0; STATE: InD; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   58; REGS: eax: 101, ecx:   3, edx:   4, eip:  11, esp:   0; STATE: InE; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   59; REGS: eax: 108, ecx:   3, edx:   4, eip:  11, esp:   0; STATE: IPF; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   60; REGS: eax: 108, ecx:   3, edx:   4, eip:  12, esp:   0; STATE: InF; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   61; REGS: eax: 108, ecx:   3, edx:   4, eip:  12, esp:   0; STATE: InD; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:   62; REGS: eax: 108, ecx:   3, edx:   4, eip:  12, esp:   0; STATE: InE; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:   63; REGS: eax: 108, ecx:   3, edx:   4, eip:  12, esp:   0; STATE: IPF; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:   64; REGS: eax: 108, ecx:   3, edx:   4, eip:  13, esp:   0; STATE: InF; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:   65; REGS: eax: 108, ecx:   3, edx:   4, eip:  13, esp:   0; STATE: InD; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:   66; REGS: eax: 108, ecx:   3, edx:   4, eip:  13, esp:   0; STATE: InE; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:   67; REGS: eax: 108, ecx:   2, edx:   4, eip:  13, esp:   0; STATE: IPF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:   68; REGS: eax: 108, ecx:   2, edx:   4, eip:  14, esp:   0; STATE: InF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:   69; REGS: eax: 108, ecx:   2, edx:   4, eip:  14, esp:   0; STATE: InD; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   70; REGS: eax: 108, ecx:   2, edx:   4, eip:  14, esp:   0; STATE: OPF; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   71; REGS: eax: 108, ecx:   2, edx:   4, eip:  15, esp:   0; STATE: OnF; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   72; REGS: eax: 108, ecx:   2, edx:   4, eip:  15, esp:   0; STATE: InE; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   73; REGS: eax: 108, ecx:   2, edx:   4, eip:  10, esp:   0; STATE: InF; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   74; REGS: eax: 108, ecx:   2, edx:   4, eip:  10, esp:   0; STATE: InD; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   75; REGS: eax: 108, ecx:   2, edx:   4, eip:  10, esp:   0; STATE: InE; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   76; REGS: eax: 108, ecx:   2, edx:   5, eip:  10, esp:   0; STATE: IPF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   77; REGS: eax: 108, ecx:   2, edx:   5, eip:  11, esp:   0; STATE: InF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   78; REGS: eax: 108, ecx:   2, edx:   5, eip:  11, esp:   0; STATE: InD; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   79; REGS: eax: 108, ecx:   2, edx:   5, eip:  11, esp:   0; STATE: InE; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   80; REGS: eax: 108, ecx:   2, edx:   5, eip:  11, esp:   0; STATE: IPF; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   81; REGS: eax: 108, ecx:   2, edx:   5, eip:  12, esp:   0; STATE: InF; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:   82; REGS: eax: 108, ecx:   2, edx:   5, eip:  12, esp:   0; STATE: InD; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:   83; REGS: eax: 108, ecx:   2, edx:   5, eip:  12, esp:   0; STATE: InE; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:   84; REGS: eax: 108, ecx:   2, edx:   5, eip:  12, esp:   0; STATE: IPF; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:   85; REGS: eax: 108, ecx:   2, edx:   5, eip:  13, esp:   0; STATE: InF; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:   86; REGS: eax: 108, ecx:   2, edx:   5, eip:  13, esp:   0; STATE: InD; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:   87; REGS: eax: 108, ecx:   2, edx:   5, eip:  13, esp:   0; STATE: InE; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:   88; REGS: eax: 108, ecx:   1, edx:   5, eip:  13, esp:   0; STATE: IPF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:   89; REGS: eax: 108, ecx:   1, edx:   5, eip:  14, esp:   0; STATE: InF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:   90; REGS: eax: 108, ecx:   1, edx:   5, eip:  14, esp:   0; STATE: InD; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   91; REGS: eax: 108, ecx:   1, edx:   5, eip:  14, esp:   0; STATE: OPF; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   92; REGS: eax: 108, ecx:   1, edx:   5, eip:  15, esp:   0; STATE: OnF; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   93; REGS: eax: 108, ecx:   1, edx:   5, eip:  15, esp:   0; STATE: InE; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   94; REGS: eax: 108, ecx:   1, edx:   5, eip:  10, esp:   0; STATE: InF; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:   95; REGS: eax: 108, ecx:   1, edx:   5, eip:  10, esp:   0; STATE: InD; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   96; REGS: eax: 108, ecx:   1, edx:   5, eip:  10, esp:   0; STATE: InE; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   97; REGS: eax: 108, ecx:   1, edx:   6, eip:  10, esp:   0; STATE: IPF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   98; REGS: eax: 108, ecx:   1, edx:   6, eip:  11, esp:   0; STATE: InF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Inc, arg: Data }))
+  [DEBUG lab3_rust::machine] TICK:   99; REGS: eax: 108, ecx:   1, edx:   6, eip:  11, esp:   0; STATE: InD; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:  100; REGS: eax: 108, ecx:   1, edx:   6, eip:  11, esp:   0; STATE: InE; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:  101; REGS: eax: 111, ecx:   1, edx:   6, eip:  11, esp:   0; STATE: IPF; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:  102; REGS: eax: 111, ecx:   1, edx:   6, eip:  12, esp:   0; STATE: InF; INSTR: OpHigher(Math(MathOpHigher { opcode: Mov, args: RegMemToReg(Accumulator, Data) }))
+  [DEBUG lab3_rust::machine] TICK:  103; REGS: eax: 111, ecx:   1, edx:   6, eip:  12, esp:   0; STATE: InD; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:  104; REGS: eax: 111, ecx:   1, edx:   6, eip:  12, esp:   0; STATE: InE; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:  105; REGS: eax: 111, ecx:   1, edx:   6, eip:  12, esp:   0; STATE: IPF; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:  106; REGS: eax: 111, ecx:   1, edx:   6, eip:  13, esp:   0; STATE: InF; INSTR: OpHigher(Io(IoOpWord { opcode: Out, arg: 1 }))
+  [DEBUG lab3_rust::machine] TICK:  107; REGS: eax: 111, ecx:   1, edx:   6, eip:  13, esp:   0; STATE: InD; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:  108; REGS: eax: 111, ecx:   1, edx:   6, eip:  13, esp:   0; STATE: InE; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:  109; REGS: eax: 111, ecx:   0, edx:   6, eip:  13, esp:   0; STATE: IPF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:  110; REGS: eax: 111, ecx:   0, edx:   6, eip:  14, esp:   0; STATE: InF; INSTR: OpHigher(Alter(AlterOpWord { opcode: Dec, arg: Count }))
+  [DEBUG lab3_rust::machine] TICK:  111; REGS: eax: 111, ecx:   0, edx:   6, eip:  14, esp:   0; STATE: InD; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:  112; REGS: eax: 111, ecx:   0, edx:   6, eip:  14, esp:   0; STATE: OPF; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:  113; REGS: eax: 111, ecx:   0, edx:   6, eip:  15, esp:   0; STATE: OnF; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:  114; REGS: eax: 111, ecx:   0, edx:   6, eip:  15, esp:   0; STATE: InE; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:  115; REGS: eax: 111, ecx:   0, edx:   6, eip:  15, esp:   0; STATE: IPF; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:  116; REGS: eax: 111, ecx:   0, edx:   6, eip:  16, esp:   0; STATE: InF; INSTR: OpHigher(Branch(BranchOpHigher { opcode: Jnz, arg_higher: 0 }))
+  [DEBUG lab3_rust::machine] TICK:  117; REGS: eax: 111, ecx:   0, edx:   6, eip:  16, esp:   0; STATE: InD; INSTR: OpHigher(Control(ControlOpWord(Exit)))
+  [DEBUG lab3_rust::machine] TICK:  118; REGS: eax: 111, ecx:   0, edx:   6, eip:  16, esp:   0; STATE: InE; INSTR: OpHigher(Control(ControlOpWord(Exit)))
 

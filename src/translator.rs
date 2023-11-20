@@ -1,5 +1,6 @@
-use std::{collections::HashMap, fs, marker::PhantomData, path::Path};
+use std::{collections::HashMap, fs, marker::PhantomData, path::Path, str::FromStr};
 
+use log::debug;
 use thiserror::Error;
 
 use crate::isa::{
@@ -42,12 +43,12 @@ enum TranslatorDirective {
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 struct Label(String);
 
-impl TryFrom<&str> for Label {
-    type Error = TranslatorError;
+impl FromStr for Label {
+    type Err = TranslatorError;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        if value.chars().all(|c| c.is_ascii_lowercase()) {
-            Ok(Self(value.to_owned()))
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.chars().all(|c| c.is_ascii_lowercase()) {
+            Ok(Self(s.to_owned()))
         } else {
             Err(TranslatorError::InvalidLabel)
         }
@@ -70,22 +71,20 @@ enum Token {
     Literal(String),
 }
 
-impl TryFrom<&str> for Token {
-    type Error = TranslatorError;
+impl FromStr for Token {
+    type Err = TranslatorError;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        if value == "word" {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "word" {
             Ok(Self::TranslatorDirective(TranslatorDirective::Word))
-        } else if let Ok(instruction) = Instruction::try_from(value) {
+        } else if let Ok(instruction) = s.parse() {
             Ok(Self::Instruction(instruction))
-        } else if let Ok(operand) = Operand::try_from(value) {
+        } else if let Ok(operand) = s.parse() {
             Ok(Self::Operand(operand))
-        } else if let Some(label) =
-            value.strip_suffix(':').map(Label::try_from).and_then(Result::ok)
-        {
-            Ok(Self::LabelDef(label)) //TODO validate label
-        } else if value.starts_with('"') && value.ends_with('"') {
-            Ok(Self::Literal(value[1..value.len() - 1].to_owned()))
+        } else if let Some(label) = s.strip_suffix(':').map(Label::from_str).and_then(Result::ok) {
+            Ok(Self::LabelDef(label))
+        } else if s.starts_with('"') && s.ends_with('"') {
+            Ok(Self::Literal(s[1..s.len() - 1].to_owned()))
         } else {
             Err(TranslatorError::UnknownToken)
         }
@@ -134,18 +133,18 @@ impl Operand {
     }
 }
 
-impl TryFrom<&str> for Operand {
-    type Error = TranslatorError;
+impl FromStr for Operand {
+    type Err = TranslatorError;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        if let Ok(arg) = OpArg::try_from(value) {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(arg) = s.parse() {
             Ok(Self::OpArg(arg))
-        } else if let Ok(label) = Label::try_from(value) {
+        } else if let Ok(label) = s.parse() {
             Ok(Self::LabelRef(label))
-        } else if let Some(label) = value
+        } else if let Some(label) = s
             .strip_prefix('[')
             .and_then(|value| value.strip_suffix(']'))
-            .map(Label::try_from)
+            .map(Label::from_str)
             .and_then(Result::ok)
         {
             Ok(Self::MemLabelRef(label))
@@ -171,13 +170,13 @@ impl<'a> TokenIterator<'a> {
     }
 
     pub fn next_token(&mut self) -> Result<Token, TranslatorError> {
-        self.inner.next().ok_or(TranslatorError::EndOfInput)?.as_str().try_into()
+        self.inner.next().ok_or(TranslatorError::EndOfInput)?.as_str().parse()
     }
 
     pub fn next_token_with_suffix(&mut self, suffix: char) -> Result<Token, TranslatorError> {
         let str = self.inner.next().ok_or(TranslatorError::EndOfInput)?.as_str();
         if str.ends_with(suffix) {
-            str[0..str.len() - 1].try_into()
+            str[0..str.len() - 1].parse()
         } else {
             Err(TranslatorError::UnexpectedToken {
                 expected: format!("Token with suffix {}", suffix),
@@ -198,7 +197,7 @@ struct ProgramBuilder<T> {
     labels: HashMap<Label, MemoryAddress>,
     current_address: MemoryAddress,
     machine_code: Vec<MachineWord>,
-    entrypoint: MemoryAddress,
+    entrypoint: Option<MemoryAddress>,
     phantom: PhantomData<T>,
 }
 
@@ -219,16 +218,17 @@ impl ProgramBuilder<LabelsUnresolved> {
             label_address.add(1);
             self.labels.insert(label.to_owned(), label_address.clone());
             if label == "start" {
-                self.entrypoint = label_address;
+                self.entrypoint = Some(label_address);
             }
             Ok(())
         }
     }
 
     pub fn finalize_labels(self) -> Result<ProgramBuilder<LabelsResolved>, TranslatorError> {
-        if self.entrypoint == MemoryAddress::null() {
+        if self.entrypoint.is_none() {
             return Err(TranslatorError::EntrypointMissing);
         }
+
         Ok(ProgramBuilder {
             labels: self.labels,
             current_address: MemoryAddress::null(),
@@ -258,7 +258,7 @@ impl ProgramBuilder<LabelsResolved> {
     }
 
     pub fn build(self) -> Result<Program, TranslatorError> {
-        Ok(Program::new(self.machine_code, self.entrypoint))
+        Ok(Program::new(self.machine_code, self.entrypoint.unwrap_or(MemoryAddress::null())))
     }
 }
 
@@ -287,7 +287,7 @@ impl Translator {
         iter: &mut TokenIterator,
     ) -> Result<ProgramBuilder<LabelsResolved>, TranslatorError> {
         while let Ok(raw_token) = iter.next_str() {
-            match Token::try_from(raw_token)? {
+            match Token::from_str(raw_token)? {
                 Token::TranslatorDirective(directive) => {
                     Self::calculate_directive(&mut builder, directive, iter)
                 },
@@ -313,7 +313,7 @@ impl Translator {
         iter: &mut TokenIterator,
     ) -> Result<(), TranslatorError> {
         while let Ok(raw_token) = iter.next_str() {
-            match Token::try_from(raw_token)? {
+            match Token::from_str(raw_token)? {
                 Token::TranslatorDirective(directive) => {
                     Self::handle_directive(builder, directive, iter)
                 },
@@ -469,5 +469,8 @@ impl Translator {
 }
 
 pub fn main(source_path: &Path, target_path: &Path) -> Result<(), TranslatorError> {
-    Translator::translate(source_path, target_path)
+    debug!("Starting translation process");
+    Translator::translate(source_path, target_path)?;
+    debug!("Successfully finished translation process");
+    Ok(())
 }

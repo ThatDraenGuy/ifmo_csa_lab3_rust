@@ -1,4 +1,4 @@
-use std::{fs::File, path::Path};
+use std::{fs::File, path::Path, str::FromStr};
 
 use phf::phf_map;
 use ron::ser::PrettyConfig;
@@ -19,6 +19,8 @@ pub enum ISAError {
     InvalidOpArg,
     #[error("Invalid args num")]
     InvalidArgNum,
+    #[error("Invalid machine word to compose")]
+    InvalidComposeAttempt,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -40,6 +42,20 @@ impl Program {
     pub fn write_to_file(&self, path: &Path) -> Result<(), ISAError> {
         let file = File::create(path)?;
         Ok(ron::ser::to_writer_pretty(file, self, PrettyConfig::default())?)
+    }
+
+    pub fn len(&self) -> u32 {
+        self.code.len() as u32
+    }
+
+    pub fn entrypoint(&self) -> MemoryAddress {
+        self.entrypoint.clone()
+    }
+}
+
+impl From<Program> for Vec<MachineWord> {
+    fn from(value: Program) -> Self {
+        value.code
     }
 }
 
@@ -88,7 +104,8 @@ impl InstructionTrait for Instruction {
     }
 }
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+pub const EMPTY_WORD: MachineWord = MachineWord::Empty;
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub enum MachineWord {
     OpHigher(OpHigher), // Верхняя часть инструкции
     OpLower(OpLower),   // Нижняя часть инструкции
@@ -97,11 +114,69 @@ pub enum MachineWord {
     Empty, // Пустое слово
 }
 
+impl MachineWord {
+    pub fn compose(&mut self, other: Self) -> Result<(), ISAError> {
+        let lower = match other {
+            MachineWord::OpLower(op) => match op {
+                OpLower::MathOpLower(lower) => match lower {
+                    MathOpLower::MemToReg(arg)
+                    | MathOpLower::RegToMem(arg)
+                    | MathOpLower::RegImmed(arg) => Ok(arg),
+                },
+                OpLower::BranchOpLower(lower) => Ok(lower.arg_lower),
+            },
+            MachineWord::Data(data) => Ok(data.lower()),
+            MachineWord::Empty => Ok(0),
+            _ => Err(ISAError::InvalidComposeAttempt),
+        }?;
+        let higher = match self {
+            MachineWord::OpHigher(higher) => match higher {
+                OpHigher::Math(math) => match math.args {
+                    MathOpHigherArgs::MemToReg(_, higher)
+                    | MathOpHigherArgs::RegToMem(_, higher)
+                    | MathOpHigherArgs::RegImmed(_, higher) => Ok(higher),
+                    _ => Err(ISAError::InvalidComposeAttempt),
+                },
+                OpHigher::Branch(branch) => Ok(branch.arg_higher),
+                _ => Err(ISAError::InvalidComposeAttempt),
+            },
+            MachineWord::Data(data) => Ok(data.higher()),
+            MachineWord::Empty => todo!(),
+            _ => Err(ISAError::InvalidComposeAttempt),
+        }?;
+
+        *self = MachineWord::Data(Immed::of(higher, lower));
+        Ok(())
+    }
+
+    pub fn as_number(&self) -> u32 {
+        match self {
+            MachineWord::OpHigher(op) => match op {
+                OpHigher::Math(_) => 0,   //TODO think
+                OpHigher::Branch(_) => 0, //TODO think
+                OpHigher::Alter(_) => 0,
+                OpHigher::Io(io) => io.arg as u32,
+                OpHigher::Control(_) => 0,
+            },
+            MachineWord::OpLower(op) => match op {
+                OpLower::MathOpLower(math) => match math {
+                    MathOpLower::MemToReg(val)
+                    | MathOpLower::RegToMem(val)
+                    | MathOpLower::RegImmed(val) => *val as u32,
+                },
+                OpLower::BranchOpLower(branch) => branch.arg_lower as u32,
+            },
+            MachineWord::Data(data) => data.clone().into(),
+            MachineWord::Empty => 0,
+        }
+    }
+}
+
 // Верхняя часть кода инструкции
 // В реализации на уровне структуры часть слова, определяющая конкретный тип инструкции,
 // задана неявно через тип enum'а.
 // Для расчёта размера будем считать, что такая часть слова занимает 1 байт,
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum OpHigher {
     Math(MathOpHigher),
     Branch(BranchOpHigher),
@@ -112,7 +187,7 @@ pub enum OpHigher {
 
 // Нижняя часть кода инструкции
 // Считаем, что "лишних" затрат памяти на повторный идентификатор инструкции нет
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum OpLower {
     MathOpLower(MathOpLower),
     BranchOpLower(BranchOpLower),
@@ -133,14 +208,14 @@ pub enum MathOp {
 // В реализации на уровне структуры часть слова, определяющая тип аргументов,
 // задана неявно через тип enum'а.
 // Для расчёта размера будем считать, что такая часть слова занимает 4 бита
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct MathOpHigher {
-    opcode: MathOp,
-    args: MathOpHigherArgs,
+    pub opcode: MathOp,
+    pub args: MathOpHigherArgs,
 }
 
 // Нижняя часть математический инструкций
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum MathOpLower {
     MemToReg(MemoryAddressLower), // MOV из памяти в регистр, для инструкции нужно 2 слова - оставшаяся часть адреса
     RegToMem(MemoryAddressLower), // MOV из регистра в память, для инструкции нужно 2 слова - оставшаяся часть адреса
@@ -175,18 +250,18 @@ impl MathOp {
             )),
             (OpArg::Reg(fst), OpArg::Reg(snd)) => Ok((MathOpHigherArgs::RegToReg(fst, snd), None)),
             (OpArg::Reg(reg), OpArg::RegMem(reg_mem)) => {
-                Ok((MathOpHigherArgs::RegToRegMem(reg, reg_mem), None))
+                Ok((MathOpHigherArgs::RegMemToReg(reg, reg_mem), None))
             },
             (OpArg::Reg(reg), OpArg::Mem(mem)) => Ok((
-                MathOpHigherArgs::RegToMem(reg, mem.higher()),
-                Some(MathOpLower::RegToMem(mem.lower())),
-            )),
-            (OpArg::RegMem(reg_mem), OpArg::Reg(reg)) => {
-                Ok((MathOpHigherArgs::RegMemToReg(reg_mem, reg), None))
-            },
-            (OpArg::Mem(mem), OpArg::Reg(reg)) => Ok((
                 MathOpHigherArgs::MemToReg(reg, mem.higher()),
                 Some(MathOpLower::MemToReg(mem.lower())),
+            )),
+            (OpArg::RegMem(reg_mem), OpArg::Reg(reg)) => {
+                Ok((MathOpHigherArgs::RegToRegMem(reg_mem, reg), None))
+            },
+            (OpArg::Mem(mem), OpArg::Reg(reg)) => Ok((
+                MathOpHigherArgs::RegToMem(reg, mem.higher()),
+                Some(MathOpLower::RegToMem(mem.lower())),
             )),
             _ => Err(ISAError::InvalidOpArg),
         }
@@ -199,14 +274,14 @@ impl From<MathOpHigher> for MachineWord {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum MathOpHigherArgs {
-    RegToReg(RegisterId, RegisterId), // MOV из регистра в регистр, для инструкции хватает одного слова
-    RegToRegMem(RegisterId, RegisterId), // MOV из регистра в память по второму регистру, для инструкции хватает одного слова
-    RegMemToReg(RegisterId, RegisterId), // MOV из памяти по регистру во второй регистр, для инструкции хватает одного слова
-    MemToReg(RegisterId, MemoryAddressHigher), // MOV из памяти в регистр, для инструкции нужно 2 слова - весь адрес не помещается
-    RegToMem(RegisterId, MemoryAddressHigher), // MOV из регистра в память, для инструкции нужно 2 слова - весь адрес не помещается
-    RegImmed(RegisterId, ImmedHigher), // MOV литерала в регистр, для инструкции нужно 2 слова - весь литерал не помещается
+    RegToReg(RegisterId, RegisterId), // из регистра в регистр, для инструкции хватает одного слова
+    RegToRegMem(RegisterId, RegisterId), // из регистра в память по второму регистру, для инструкции хватает одного слова
+    RegMemToReg(RegisterId, RegisterId), // из памяти по регистру во второй регистр, для инструкции хватает одного слова
+    MemToReg(RegisterId, MemoryAddressHigher), // из памяти в регистр, для инструкции нужно 2 слова - весь адрес не помещается
+    RegToMem(RegisterId, MemoryAddressHigher), // из регистра в память, для инструкции нужно 2 слова - весь адрес не помещается
+    RegImmed(RegisterId, ImmedHigher), // из литерала в регистр, для инструкции нужно 2 слова - весь литерал не помещается
 }
 
 impl From<MathOpLower> for MachineWord {
@@ -229,13 +304,13 @@ pub enum BranchOp {
     Jns, // JNS - переход, если SF=0
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct BranchOpHigher {
-    opcode: BranchOp,
-    arg_higher: ImmedHigher,
+    pub opcode: BranchOp,
+    pub arg_higher: ImmedHigher,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct BranchOpLower {
     arg_lower: ImmedLower,
 }
@@ -284,10 +359,10 @@ pub enum AlterOp {
     Dec, // DEC - декремент регистра
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct AlterOpWord {
-    opcode: AlterOp,
-    arg: RegisterId,
+    pub opcode: AlterOp,
+    pub arg: RegisterId,
 }
 
 impl InstructionTrait for AlterOp {
@@ -324,10 +399,10 @@ pub enum IoOp {
     In,
     Out,
 }
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct IoOpWord {
-    opcode: IoOp,
-    arg: PortId,
+    pub opcode: IoOp,
+    pub arg: PortId,
 }
 
 impl InstructionTrait for IoOp {
@@ -372,8 +447,8 @@ pub enum ControlOp {
     Exit, // выполняет завершение работы
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ControlOpWord(ControlOp);
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct ControlOpWord(pub ControlOp);
 
 impl InstructionTrait for ControlOp {
     fn into_words(self, args: OpArgBatch) -> Result<(MachineWord, Option<MachineWord>), ISAError> {
@@ -419,11 +494,11 @@ static OPCODE_KEYWORDS: phf::Map<&str, Instruction> = phf_map! {
     "exit" => Instruction::Control(ControlOp::Exit),
 };
 
-impl TryFrom<&str> for Instruction {
-    type Error = ISAError;
+impl FromStr for Instruction {
+    type Err = ISAError;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        OPCODE_KEYWORDS.get(value).cloned().ok_or(ISAError::InvalidOpCode)
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        OPCODE_KEYWORDS.get(s).cloned().ok_or(ISAError::InvalidOpCode)
     }
 }
 
@@ -453,12 +528,24 @@ impl From<Immed> for MemoryAddress {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+impl From<MemoryAddress> for u32 {
+    fn from(value: MemoryAddress) -> Self {
+        value.0
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Immed(u32);
 pub type ImmedHigher = u16;
 pub type ImmedLower = u16;
 
 impl Immed {
+    pub fn new(val: u32) -> Self {
+        Self(val)
+    }
+    pub fn of(higher: u16, lower: u16) -> Self {
+        Self(((higher as u32) << 16) + lower as u32)
+    }
     pub fn higher(&self) -> ImmedHigher {
         (self.0 >> 16) as u16
     }
@@ -470,16 +557,16 @@ impl Immed {
     }
 }
 
-impl TryFrom<&str> for Immed {
-    type Error = ISAError;
+impl FromStr for Immed {
+    type Err = ISAError;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        if let Ok(num) = value.parse::<u32>() {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(num) = s.parse::<u32>() {
             Ok(Self(num))
-        } else if let Ok(num) = value.parse::<i32>() {
+        } else if let Ok(num) = s.parse::<i32>() {
             Ok(Self(u32::from_be_bytes(num.to_be_bytes())))
-        } else if value.starts_with('\'') && value.ends_with('\'') && value.len() == 3 {
-            let c = value.chars().nth(1).unwrap();
+        } else if s.starts_with('\'') && s.ends_with('\'') && s.len() == 3 {
+            let c = s.chars().nth(1).unwrap();
             Ok(Self(c as u32))
         } else {
             Err(ISAError::InvalidOpArg)
@@ -490,6 +577,12 @@ impl TryFrom<&str> for Immed {
 impl From<u32> for Immed {
     fn from(value: u32) -> Self {
         Self(value)
+    }
+}
+
+impl From<Immed> for u32 {
+    fn from(value: Immed) -> Self {
+        value.0
     }
 }
 
@@ -515,16 +608,16 @@ pub enum OpArg {
                         // StringLiteral(String),        // литерал строки
 }
 
-impl TryFrom<&str> for OpArg {
-    type Error = ISAError;
+impl FromStr for OpArg {
+    type Err = ISAError;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        if let Ok(literal) = value.try_into() {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(literal) = s.parse() {
             Ok(Self::Immed(literal))
-        } else if let Ok(register) = value.try_into() {
+        } else if let Ok(register) = s.parse() {
             Ok(Self::Reg(register))
-        } else if value.starts_with('[') && value.ends_with(']') {
-            Ok(Self::RegMem(value[1..value.len() - 1].try_into()?))
+        } else if s.starts_with('[') && s.ends_with(']') {
+            Ok(Self::RegMem(s[1..s.len() - 1].parse()?))
         } else {
             Err(ISAError::InvalidOpArg)
         }
@@ -547,7 +640,7 @@ pub enum OpArgNum {
 // В реализации на уровне структуры часть слова, определяющая id регистра
 // задана явно через тип enum'а
 // Для расчёта размера будем считать, что такая часть слова занимает 4 бита
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum RegisterId {
     Accumulator,
     Count,
@@ -564,11 +657,11 @@ static REGISTER_ID_KEYWORDS: phf::Map<&'static str, RegisterId> = phf_map! {
     "esp" => RegisterId::StackPointer,
 };
 
-impl TryFrom<&str> for RegisterId {
-    type Error = ISAError;
+impl FromStr for RegisterId {
+    type Err = ISAError;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        REGISTER_ID_KEYWORDS.get(value).cloned().ok_or(ISAError::InvalidRegisterId)
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        REGISTER_ID_KEYWORDS.get(s).cloned().ok_or(ISAError::InvalidRegisterId)
     }
 }
 

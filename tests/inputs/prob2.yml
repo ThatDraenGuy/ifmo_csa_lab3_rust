@@ -3,7 +3,7 @@ translator_input: |-
   result: word 2
 
   start:
-    mov ecx, 4
+    mov ecx, 3
     mov eax, 2
   loop:
     mov edx, eax
@@ -11,7 +11,7 @@ translator_input: |-
     mov [num], edx
     dec ecx
     jnz loop
-    mov ecx, 4
+    mov ecx, 3
     cmp eax, 4000000
     jns end
     add [result], eax
@@ -19,7 +19,6 @@ translator_input: |-
 
   end:
     mov eax, [result]
-    out 1
     exit
 
 

@@ -49,7 +49,7 @@ impl Program {
     }
 
     pub fn entrypoint(&self) -> MemoryAddress {
-        self.entrypoint.clone()
+        self.entrypoint
     }
 }
 
@@ -115,48 +115,20 @@ pub enum MachineWord {
 }
 
 impl MachineWord {
-    pub fn compose(&mut self, other: Self) -> Result<(), ISAError> {
-        let lower = match other {
-            MachineWord::OpLower(op) => match op {
-                OpLower::MathOpLower(lower) => match lower {
-                    MathOpLower::MemToReg(arg)
-                    | MathOpLower::RegToMem(arg)
-                    | MathOpLower::RegImmed(arg) => Ok(arg),
-                },
-                OpLower::BranchOpLower(lower) => Ok(lower.arg_lower),
-            },
-            MachineWord::Data(data) => Ok(data.lower()),
-            MachineWord::Empty => Ok(0),
-            _ => Err(ISAError::InvalidComposeAttempt),
-        }?;
-        let higher = match self {
-            MachineWord::OpHigher(higher) => match higher {
-                OpHigher::Math(math) => match math.args {
-                    MathOpHigherArgs::MemToReg(_, higher)
-                    | MathOpHigherArgs::RegToMem(_, higher)
-                    | MathOpHigherArgs::RegImmed(_, higher) => Ok(higher),
-                    _ => Err(ISAError::InvalidComposeAttempt),
-                },
-                OpHigher::Branch(branch) => Ok(branch.arg_higher),
-                _ => Err(ISAError::InvalidComposeAttempt),
-            },
-            MachineWord::Data(data) => Ok(data.higher()),
-            MachineWord::Empty => todo!(),
-            _ => Err(ISAError::InvalidComposeAttempt),
-        }?;
-
-        *self = MachineWord::Data(Immed::of(higher, lower));
-        Ok(())
-    }
-
     pub fn as_number(&self) -> u32 {
         match self {
             MachineWord::OpHigher(op) => match op {
-                OpHigher::Math(_) => 0,   //TODO think
-                OpHigher::Branch(_) => 0, //TODO think
-                OpHigher::Alter(_) => 0,
+                OpHigher::Math(math) => match math.args {
+                    MathOpHigherArgs::RegToReg(_, _)
+                    | MathOpHigherArgs::RegToRegMem(_, _)
+                    | MathOpHigherArgs::RegMemToReg(_, _) => 0,
+                    MathOpHigherArgs::RegImmed(_, val)
+                    | MathOpHigherArgs::MemToReg(_, val)
+                    | MathOpHigherArgs::RegToMem(_, val) => val as u32,
+                },
+                OpHigher::Branch(branch) => branch.arg_higher as u32,
                 OpHigher::Io(io) => io.arg as u32,
-                OpHigher::Control(_) => 0,
+                OpHigher::Alter(_) | OpHigher::Control(_) => 0,
             },
             MachineWord::OpLower(op) => match op {
                 OpLower::MathOpLower(math) => match math {
@@ -502,7 +474,7 @@ impl FromStr for Instruction {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Default, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Default, Clone, Copy, PartialEq)]
 pub struct MemoryAddress(u32);
 pub type MemoryAddressHigher = u16;
 pub type MemoryAddressLower = u16;
@@ -531,6 +503,12 @@ impl From<Immed> for MemoryAddress {
 impl From<MemoryAddress> for u32 {
     fn from(value: MemoryAddress) -> Self {
         value.0
+    }
+}
+
+impl From<u32> for MemoryAddress {
+    fn from(value: u32) -> Self {
+        Self(value)
     }
 }
 

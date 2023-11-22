@@ -214,9 +214,9 @@ impl ProgramBuilder<LabelsUnresolved> {
         if self.labels.contains_key(label) {
             Err(TranslatorError::DuplicateLabel)
         } else {
-            let mut label_address = self.current_address.clone();
+            let mut label_address = self.current_address;
             label_address.add(1);
-            self.labels.insert(label.to_owned(), label_address.clone());
+            self.labels.insert(label.to_owned(), label_address);
             if label == "start" {
                 self.entrypoint = Some(label_address);
             }

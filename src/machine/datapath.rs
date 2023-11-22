@@ -166,6 +166,7 @@ mod register_set {
     #[derive(Default, Debug)]
     pub struct RegisterSet {
         pub acc: u32,   //eax
+        pub base: u32,  //ebx
         pub count: u32, //ecx
         pub data: u32,  //edx
         pub stack: u32, //esp
@@ -178,6 +179,7 @@ mod register_set {
         fn index(&self, index: RegisterId) -> &Self::Output {
             match index {
                 RegisterId::Accumulator => &self.acc,
+                RegisterId::Base => &self.base,
                 RegisterId::Count => &self.count,
                 RegisterId::Data => &self.data,
                 RegisterId::InstructionPointer => &self.instr,
@@ -189,6 +191,7 @@ mod register_set {
         fn index_mut(&mut self, index: RegisterId) -> &mut Self::Output {
             match index {
                 RegisterId::Accumulator => &mut self.acc,
+                RegisterId::Base => &mut self.base,
                 RegisterId::Count => &mut self.count,
                 RegisterId::Data => &mut self.data,
                 RegisterId::InstructionPointer => &mut self.instr,
@@ -209,14 +212,16 @@ mod alu {
         right: u32,
         invert_left: bool,
         invert_right: bool,
+        add_right_one: bool,
     }
 
     pub enum AluOpCode {
         Add,
-        Sub,
         Cmp,
         Mov,
         Stc,
+        Shl,
+        Shr,
     }
 
     impl Alu {
@@ -239,20 +244,22 @@ mod alu {
         pub fn set_invert_right(&mut self) {
             self.invert_right = true;
         }
-        pub fn set_right_one(&mut self) {
-            self.right = 1;
+        pub fn set_add_right_one(&mut self) {
+            self.add_right_one = true;
         }
 
         pub(super) fn perform(&mut self, opcode: AluOpCode, flags: Option<&mut FlagSet>) -> u32 {
             let left = if self.invert_left { !self.left } else { self.left };
             let right = if self.invert_right { !self.right } else { self.right };
+            let right = if self.add_right_one { right + 1 } else { right };
 
             let num = match opcode {
                 AluOpCode::Add => left.wrapping_add(right),
-                AluOpCode::Sub => left.wrapping_sub(right),
                 AluOpCode::Cmp => left.wrapping_sub(right),
                 AluOpCode::Mov => right,
                 AluOpCode::Stc => (right & 0xFFFF0000) + (left & 0x0000FFFF),
+                AluOpCode::Shl => left << right,
+                AluOpCode::Shr => left >> right,
             };
 
             if let Some(flags) = flags {
@@ -262,6 +269,7 @@ mod alu {
 
             self.invert_left = false;
             self.invert_right = false;
+            self.add_right_one = false;
             if let AluOpCode::Cmp = opcode {
                 left
             } else {
@@ -339,7 +347,6 @@ pub struct DataPath<const MEMORY_SIZE: usize> {
     mem_out_buf: MachineWord,
 }
 
-#[allow(unused)] // Шина из памяти к регистрам не пригодилась для реализованного сабсета комманд
 pub enum ReadDemuxSel<'a> {
     MemOutBuf,
     Registers(RegisterId),
@@ -366,7 +373,7 @@ pub enum AluSignal {
     ResetRight,
     InverseLeft,
     InverseRight,
-    SetRightOne,
+    AddRightOne,
 }
 pub enum PortsMuxSel {
     In(PortId),
@@ -378,6 +385,7 @@ impl<const MEMORY_SIZE: usize> DataPath<MEMORY_SIZE> {
         let mut datapath = Self { ports, ..Default::default() };
         let entrypoint = program.entrypoint();
         datapath.regs.instr = entrypoint.into();
+        datapath.regs.stack = MEMORY_SIZE as u32;
 
         let code: Vec<MachineWord> = program.into();
 
@@ -416,7 +424,7 @@ impl<const MEMORY_SIZE: usize> DataPath<MEMORY_SIZE> {
             AluSignal::ResetRight => self.alu.reset_right(),
             AluSignal::InverseLeft => self.alu.set_invert_left(),
             AluSignal::InverseRight => self.alu.set_invert_right(),
-            AluSignal::SetRightOne => self.alu.set_right_one(),
+            AluSignal::AddRightOne => self.alu.set_add_right_one(),
         }
     }
     pub fn signal_alu_perform(&mut self, op: AluOpCode, set_flags: bool, sel: AluOutDemuxSel) {
@@ -446,8 +454,9 @@ impl<const MEMORY_SIZE: usize> DataPath<MEMORY_SIZE> {
 impl<const M: usize> Display for DataPath<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "REGS: eax:{eax:4}, ecx:{ecx:4}, edx:{edx:4}, eip:{eip:4}, esp:{esp:4}",
+            "REGS: eax:{eax:#010x}, ebx:{ebx:#010x}, ecx:{ecx:#010x}, edx:{edx:#010x}, eip:{eip:#010x}, esp:{esp:#010x}",
             eax = self.regs.acc,
+            ebx = self.regs.base,
             ecx = self.regs.count,
             edx = self.regs.data,
             eip = self.regs.instr,

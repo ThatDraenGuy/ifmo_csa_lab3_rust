@@ -80,6 +80,7 @@ pub enum Instruction {
     Alter(AlterOp),
     Io(IoOp),
     Control(ControlOp),
+    Stack(StackOp),
 }
 
 impl InstructionTrait for Instruction {
@@ -90,6 +91,7 @@ impl InstructionTrait for Instruction {
             Instruction::Alter(op) => op.into_words(args),
             Instruction::Io(op) => op.into_words(args),
             Instruction::Control(op) => op.into_words(args),
+            Instruction::Stack(op) => op.into_words(args),
         }
     }
 
@@ -100,6 +102,7 @@ impl InstructionTrait for Instruction {
             Instruction::Alter(op) => op.args_num(),
             Instruction::Io(op) => op.args_num(),
             Instruction::Control(op) => op.args_num(),
+            Instruction::Stack(op) => op.args_num(),
         }
     }
 }
@@ -129,14 +132,21 @@ impl MachineWord {
                 OpHigher::Branch(branch) => branch.arg_higher as u32,
                 OpHigher::Io(io) => io.arg as u32,
                 OpHigher::Alter(_) | OpHigher::Control(_) => 0,
+                OpHigher::Stack(stack) => match stack.args {
+                    StackOpHigherArgs::Register(_) | StackOpHigherArgs::None => 0,
+                    StackOpHigherArgs::Immed(val) => val as u32,
+                },
             },
             MachineWord::OpLower(op) => match op {
-                OpLower::MathOpLower(math) => match math {
+                OpLower::Math(math) => match math {
                     MathOpLower::MemToReg(val)
                     | MathOpLower::RegToMem(val)
                     | MathOpLower::RegImmed(val) => *val as u32,
                 },
-                OpLower::BranchOpLower(branch) => branch.arg_lower as u32,
+                OpLower::Branch(branch) => branch.arg_lower as u32,
+                OpLower::Stack(stack) => match stack {
+                    StackOpLower::Immed(val) => *val as u32,
+                },
             },
             MachineWord::Data(data) => data.clone().into(),
             MachineWord::Empty => 0,
@@ -155,14 +165,16 @@ pub enum OpHigher {
     Alter(AlterOpWord),
     Io(IoOpWord),
     Control(ControlOpWord),
+    Stack(StackOpHigher),
 }
 
 // Нижняя часть кода инструкции
 // Считаем, что "лишних" затрат памяти на повторный идентификатор инструкции нет
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum OpLower {
-    MathOpLower(MathOpLower),
-    BranchOpLower(BranchOpLower),
+    Math(MathOpLower),
+    Branch(BranchOpLower),
+    Stack(StackOpLower),
 }
 
 // ================= MATH OP - START =================
@@ -174,6 +186,8 @@ pub enum MathOp {
     Add, // ADD - прибавляет значение src к dest
     Sub, // SUB - вычитает значение src из dest
     Cmp, // CMP - вычитает значение src из dest, но не изменяет его, а только выставляет флаги
+    Shl, // SHL - арифметический сдвиг src на dest бит влево
+    Shr, // SHR - арифметический сдвиг src на dest бит вправо
 }
 
 // Верхняя часть математических инструкций
@@ -258,7 +272,7 @@ pub enum MathOpHigherArgs {
 
 impl From<MathOpLower> for MachineWord {
     fn from(value: MathOpLower) -> Self {
-        Self::OpLower(OpLower::MathOpLower(value))
+        Self::OpLower(OpLower::Math(value))
     }
 }
 
@@ -316,7 +330,7 @@ impl From<BranchOpHigher> for MachineWord {
 
 impl From<BranchOpLower> for MachineWord {
     fn from(value: BranchOpLower) -> Self {
-        Self::OpLower(OpLower::BranchOpLower(value))
+        Self::OpLower(OpLower::Branch(value))
     }
 }
 
@@ -411,6 +425,123 @@ impl From<IoOpWord> for MachineWord {
 
 // ================= IO OP - END =================
 
+// ================= STACK OP - START =================
+
+// Инструкции для работы со стэком.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub enum StackOp {
+    Push,
+    Pop,
+    Call,
+    Ret,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct StackOpHigher {
+    pub opcode: StackOp,
+    pub args: StackOpHigherArgs,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub enum StackOpHigherArgs {
+    Register(RegisterId),
+    Immed(ImmedHigher),
+    None,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub enum StackOpLower {
+    Immed(ImmedLower),
+}
+
+impl InstructionTrait for StackOp {
+    fn into_words(self, args: OpArgBatch) -> Result<(MachineWord, Option<MachineWord>), ISAError> {
+        match self {
+            StackOp::Push => {
+                if let OpArgBatch::One(arg) = args {
+                    match arg {
+                        OpArg::Immed(value) => Ok((
+                            StackOpHigher {
+                                opcode: self,
+                                args: StackOpHigherArgs::Immed(value.higher()),
+                            }
+                            .into(),
+                            Some(StackOpLower::Immed(value.lower()).into()),
+                        )),
+                        OpArg::Reg(id) => Ok((
+                            StackOpHigher { opcode: self, args: StackOpHigherArgs::Register(id) }
+                                .into(),
+                            None,
+                        )),
+                        _ => Err(ISAError::InvalidOpArg),
+                    }
+                } else {
+                    Err(ISAError::InvalidArgNum)
+                }
+            },
+            StackOp::Pop => {
+                if let OpArgBatch::One(arg) = args {
+                    if let OpArg::Reg(id) = arg {
+                        Ok((
+                            StackOpHigher { opcode: self, args: StackOpHigherArgs::Register(id) }
+                                .into(),
+                            None,
+                        ))
+                    } else {
+                        Err(ISAError::InvalidOpArg)
+                    }
+                } else {
+                    Err(ISAError::InvalidArgNum)
+                }
+            },
+            StackOp::Call => {
+                if let OpArgBatch::One(arg) = args {
+                    if let OpArg::Immed(value) = arg {
+                        Ok((
+                            StackOpHigher {
+                                opcode: self,
+                                args: StackOpHigherArgs::Immed(value.higher()),
+                            }
+                            .into(),
+                            Some(StackOpLower::Immed(value.lower()).into()),
+                        ))
+                    } else {
+                        Err(ISAError::InvalidOpArg)
+                    }
+                } else {
+                    Err(ISAError::InvalidArgNum)
+                }
+            },
+            StackOp::Ret => {
+                if let OpArgBatch::Zero = args {
+                    Ok((StackOpHigher { opcode: self, args: StackOpHigherArgs::None }.into(), None))
+                } else {
+                    Err(ISAError::InvalidArgNum)
+                }
+            },
+        }
+    }
+
+    fn args_num(&self) -> OpArgNum {
+        match self {
+            StackOp::Push | StackOp::Pop | StackOp::Call => OpArgNum::One,
+            StackOp::Ret => OpArgNum::Zero,
+        }
+    }
+}
+
+impl From<StackOpHigher> for MachineWord {
+    fn from(value: StackOpHigher) -> Self {
+        Self::OpHigher(OpHigher::Stack(value))
+    }
+}
+impl From<StackOpLower> for MachineWord {
+    fn from(value: StackOpLower) -> Self {
+        Self::OpLower(OpLower::Stack(value))
+    }
+}
+// ================= STACK OP - END =================
+
 // ================= CONTROL OP - START =================
 
 // Инструкции управления. Не принимают аргументов и как-либо влияют на работу процессора
@@ -450,6 +581,8 @@ static OPCODE_KEYWORDS: phf::Map<&str, Instruction> = phf_map! {
     "add" => Instruction::Math(MathOp::Add),
     "sub" => Instruction::Math(MathOp::Sub),
     "cmp" => Instruction::Math(MathOp::Cmp),
+    "shl" => Instruction::Math(MathOp::Shl),
+    "shr" => Instruction::Math(MathOp::Shr),
 // Инструкции ветвления
     "jmp" => Instruction::Branch(BranchOp::Jmp),
     "jz" => Instruction::Branch(BranchOp::Jz),
@@ -464,6 +597,11 @@ static OPCODE_KEYWORDS: phf::Map<&str, Instruction> = phf_map! {
     "out" => Instruction::Io(IoOp::Out),
 // Инструкции управления
     "exit" => Instruction::Control(ControlOp::Exit),
+// Интсрукции стэка
+    "push" => Instruction::Stack(StackOp::Push),
+    "pop" => Instruction::Stack(StackOp::Pop),
+    "call" => Instruction::Stack(StackOp::Call),
+    "ret" => Instruction::Stack(StackOp::Ret),
 };
 
 impl FromStr for Instruction {
@@ -621,6 +759,7 @@ pub enum OpArgNum {
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum RegisterId {
     Accumulator,
+    Base,
     Count,
     Data,
     InstructionPointer,
@@ -629,6 +768,7 @@ pub enum RegisterId {
 
 static REGISTER_ID_KEYWORDS: phf::Map<&'static str, RegisterId> = phf_map! {
     "eax" => RegisterId::Accumulator,
+    "ebx" => RegisterId::Base,
     "ecx" => RegisterId::Count,
     "edx" => RegisterId::Data,
     "eip" => RegisterId::InstructionPointer,

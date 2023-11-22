@@ -1,0 +1,94 @@
+translator_input: |-
+  prompt: word "What_is_your_name?"
+  hello_start: word "Hello,_"
+  hello_end: word "!"
+  username_buf: word 0 word 0 word 0 word 0
+
+  start: 
+    mov eax, prompt
+    call print_string
+    call print_newline
+
+    mov eax, username_buf
+    call read_string
+
+    mov eax, hello_start
+    call print_string
+
+    mov eax, username_buf
+    call print_string
+
+    mov eax, hello_end
+    call print_string
+
+    exit
+
+
+  read_string:
+    push eax
+    mov edx, eax
+    mov ecx, 0
+
+  read_string_main_loop:
+    inc edx
+    mov ebx, 0
+
+  read_string_word_loop:
+    mov eax, 0
+    in 0
+    cmp eax, 0
+    jz read_string_end
+    inc ecx
+    push ebx
+  read_string_shift_loop:
+    cmp ebx, 0
+    jz read_string_word_stuff
+    shl eax, 8
+    dec ebx
+    jmp read_string_shift_loop
+  read_string_word_stuff:
+    add [edx], eax
+    pop ebx
+    inc ebx
+    cmp ebx, 4
+    jz read_string_main_loop
+    jmp read_string_word_loop
+
+  read_string_end:
+    pop eax
+    mov [eax], ecx
+    ret
+
+
+  print_newline:
+    mov eax, 10
+    out 1
+    ret
+
+
+  print_string:
+    mov edx, eax
+    mov ecx, [eax]
+    jz print_string_end
+
+  print_string_main_loop:
+    inc edx
+    mov eax, [edx]
+    mov ebx, 4
+
+  print_string_word_loop:
+    out 1
+
+    dec ecx
+    jz print_string_end
+
+    dec ebx
+    jz print_string_main_loop
+
+    shr eax, 8
+    jmp print_string_word_loop
+
+  print_string_end:
+    ret
+
+machine_input: Oleg

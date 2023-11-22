@@ -1,12 +1,11 @@
-use std::{collections::HashMap, fs, marker::PhantomData, path::Path, str::FromStr};
-
-use log::debug;
-use thiserror::Error;
-
 use crate::isa::{
     self, Immed, Instruction, InstructionTrait, MachineWord, MemoryAddress, OpArg, OpArgBatch,
     OpArgNum, Program,
 };
+use itertools::Itertools;
+use log::debug;
+use std::{collections::HashMap, fs, marker::PhantomData, path::Path, str::FromStr};
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum TranslatorError {
@@ -16,8 +15,8 @@ pub enum TranslatorError {
     ISAError(#[from] isa::ISAError),
     #[error("End of input reached unexpectedly")]
     EndOfInput,
-    #[error("Encuntered unrecognizable token")]
-    UnknownToken,
+    #[error("Encuntered unrecognizable token: {0}")]
+    UnknownToken(String),
     #[error("Encountered unexpected token; expected {expected:?}, found {found:?}")]
     UnexpectedToken { expected: String, found: String },
     #[error("Encountered duplicate label")]
@@ -47,7 +46,7 @@ impl FromStr for Label {
     type Err = TranslatorError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.chars().all(|c| c.is_ascii_lowercase()) {
+        if s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
             Ok(Self(s.to_owned()))
         } else {
             Err(TranslatorError::InvalidLabel)
@@ -86,7 +85,7 @@ impl FromStr for Token {
         } else if s.starts_with('"') && s.ends_with('"') {
             Ok(Self::Literal(s[1..s.len() - 1].to_owned()))
         } else {
-            Err(TranslatorError::UnknownToken)
+            Err(TranslatorError::UnknownToken(s.to_owned()))
         }
     }
 }
@@ -149,7 +148,7 @@ impl FromStr for Operand {
         {
             Ok(Self::MemLabelRef(label))
         } else {
-            Err(TranslatorError::UnknownToken)
+            Err(TranslatorError::UnknownToken(s.to_owned()))
         }
     }
 }
@@ -354,7 +353,7 @@ impl Translator {
                 Token::Literal(value) => {
                     let length: u32 =
                         value.len().try_into().map_err(|_| TranslatorError::StringIsTooLong)?;
-                    builder.move_address(1 + length);
+                    builder.move_address(1 + 1 + length / 4);
                     Ok(())
                 },
                 token => Err(TranslatorError::UnexpectedToken {
@@ -386,8 +385,12 @@ impl Translator {
                     let length: u32 =
                         value.len().try_into().map_err(|_| TranslatorError::StringIsTooLong)?;
                     builder.add_word(MachineWord::Data(Immed::from(length)));
-                    for char in value.chars() {
-                        builder.add_word(MachineWord::Data(Immed::from(char)))
+                    for chunk in &value.chars().chunks(4) {
+                        let (res, _) = chunk.fold((0, 0), |acc, c| {
+                            let res = acc.0 + ((c as u32) << acc.1);
+                            (res, acc.1 + 8)
+                        });
+                        builder.add_word(MachineWord::Data(Immed::from(res)));
                     }
                     Ok(())
                 },

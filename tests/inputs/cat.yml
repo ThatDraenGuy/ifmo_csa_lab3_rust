@@ -8,4 +8,6 @@ translator_input: |-
   end:
     exit
 
-machine_input: foo
+machine_input: |-
+  foo
+  bar

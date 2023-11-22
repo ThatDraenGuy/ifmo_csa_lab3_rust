@@ -2,14 +2,33 @@ translator_input: |-
   hello: word "Hello"
 
   start: 
-    mov edx, hello
-    mov ecx, [edx]
-  loop:
+    mov eax, hello
+    call print_string
+    exit
+
+  print_string:
+    mov edx, eax
+    mov ecx, [eax]
+    jz print_string_end
+
+  print_string_main_loop:
     inc edx
     mov eax, [edx]
+    mov ebx, 4
+
+  print_string_word_loop:
     out 1
+
     dec ecx
-    jnz loop
-    exit
+    jz print_string_end
+
+    dec ebx
+    jz print_string_main_loop
+
+    shr eax, 8
+    jmp print_string_word_loop
+
+  print_string_end:
+    ret
 
 machine_input: foo

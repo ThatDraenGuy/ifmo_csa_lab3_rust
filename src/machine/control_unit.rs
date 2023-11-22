@@ -26,6 +26,12 @@ impl<const M: usize> InstructionDecoder<M> {
                 OpHigher::Alter(_) => ControlUnitState::ExecuteInstruction { tick_count: 1 },
                 OpHigher::Io(_) => ControlUnitState::ExecuteInstruction { tick_count: 1 },
                 OpHigher::Control(_) => ControlUnitState::ExecuteInstruction { tick_count: 1 },
+                OpHigher::Stack(stack) => match stack.args {
+                    StackOpHigherArgs::Register(_) | StackOpHigherArgs::None => {
+                        ControlUnitState::ExecuteInstruction { tick_count: 1 }
+                    },
+                    StackOpHigherArgs::Immed(_) => ControlUnitState::FetchOperand { tick_count: 1 },
+                },
             }),
             _ => Err(MachineError::InvalidInstruction(self.instruction.clone())),
         }
@@ -44,7 +50,8 @@ impl<const M: usize> InstructionDecoder<M> {
             },
             2 => {
                 datapath.signal_left_alu(AluLeftMuxSel::Registers(InstructionPointer));
-                datapath.signal_alu(AluSignal::SetRightOne);
+                datapath.signal_alu(AluSignal::ResetRight);
+                datapath.signal_alu(AluSignal::AddRightOne);
                 datapath.signal_alu_perform(
                     AluOpCode::Add,
                     false,
@@ -82,6 +89,7 @@ impl<const M: usize> InstructionDecoder<M> {
                 OpHigher::Alter(alter) => self.execute_alter(alter, tick_count, datapath),
                 OpHigher::Io(io) => self.execute_io(io, tick_count, datapath),
                 OpHigher::Control(control) => self.execute_control(control, tick_count, datapath),
+                OpHigher::Stack(stack) => self.execute_stack(stack, tick_count, datapath),
             },
             _ => Err(MachineError::InvalidInstruction(self.instruction.clone())),
         }
@@ -96,8 +104,10 @@ impl<const M: usize> InstructionDecoder<M> {
         let alu_opcode = match math.opcode {
             MathOp::Mov => AluOpCode::Mov,
             MathOp::Add => AluOpCode::Add,
-            MathOp::Sub => AluOpCode::Sub,
+            MathOp::Sub => AluOpCode::Add,
             MathOp::Cmp => AluOpCode::Cmp,
+            MathOp::Shl => AluOpCode::Shl,
+            MathOp::Shr => AluOpCode::Shr,
         };
         match math.args {
             MathOpHigherArgs::RegToReg(dest, src) => {
@@ -106,6 +116,10 @@ impl<const M: usize> InstructionDecoder<M> {
                     1 => {
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(dest));
                         datapath.signal_right_alu(AluRightMuxSel::Registers(src));
+                        if let MathOp::Sub = math.opcode {
+                            datapath.signal_alu(AluSignal::InverseRight);
+                            datapath.signal_alu(AluSignal::AddRightOne);
+                        }
                         datapath.signal_alu_perform(
                             alu_opcode,
                             true,
@@ -133,6 +147,10 @@ impl<const M: usize> InstructionDecoder<M> {
                     3 => {
                         datapath.signal_left_alu(AluLeftMuxSel::MemOutBuf);
                         datapath.signal_right_alu(AluRightMuxSel::Registers(src));
+                        if let MathOp::Sub = math.opcode {
+                            datapath.signal_alu(AluSignal::InverseRight);
+                            datapath.signal_alu(AluSignal::AddRightOne);
+                        }
                         datapath.signal_alu_perform(alu_opcode, true, AluOutDemuxSel::MemInBuf);
                     },
                     4 => {
@@ -158,6 +176,10 @@ impl<const M: usize> InstructionDecoder<M> {
                     3 => {
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(dest));
                         datapath.signal_right_alu(AluRightMuxSel::MemOutBuf);
+                        if let MathOp::Sub = math.opcode {
+                            datapath.signal_alu(AluSignal::InverseRight);
+                            datapath.signal_alu(AluSignal::AddRightOne);
+                        }
                         datapath.signal_alu_perform(
                             alu_opcode,
                             true,
@@ -185,6 +207,10 @@ impl<const M: usize> InstructionDecoder<M> {
                     3 => {
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(dest));
                         datapath.signal_right_alu(AluRightMuxSel::MemOutBuf);
+                        if let MathOp::Sub = math.opcode {
+                            datapath.signal_alu(AluSignal::InverseRight);
+                            datapath.signal_alu(AluSignal::AddRightOne);
+                        }
                         datapath.signal_alu_perform(
                             alu_opcode,
                             true,
@@ -213,6 +239,10 @@ impl<const M: usize> InstructionDecoder<M> {
                     3 => {
                         datapath.signal_left_alu(AluLeftMuxSel::MemOutBuf);
                         datapath.signal_right_alu(AluRightMuxSel::Registers(src));
+                        if let MathOp::Sub = math.opcode {
+                            datapath.signal_alu(AluSignal::InverseRight);
+                            datapath.signal_alu(AluSignal::AddRightOne);
+                        }
                         datapath.signal_alu_perform(alu_opcode, true, AluOutDemuxSel::MemInBuf);
                     },
                     4 => {
@@ -229,6 +259,10 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(dest));
                         datapath
                             .signal_right_alu(AluRightMuxSel::Decoder { src: &self.operand_buf });
+                        if let MathOp::Sub = math.opcode {
+                            datapath.signal_alu(AluSignal::InverseRight);
+                            datapath.signal_alu(AluSignal::AddRightOne);
+                        }
                         datapath.signal_alu_perform(
                             alu_opcode,
                             true,
@@ -286,7 +320,10 @@ impl<const M: usize> InstructionDecoder<M> {
             1 => {
                 datapath.signal_left_alu(AluLeftMuxSel::Registers(alter.arg));
                 match alter.opcode {
-                    AlterOp::Inc => datapath.signal_alu(AluSignal::SetRightOne),
+                    AlterOp::Inc => {
+                        datapath.signal_alu(AluSignal::ResetRight);
+                        datapath.signal_alu(AluSignal::AddRightOne)
+                    },
                     AlterOp::Dec => {
                         datapath.signal_alu(AluSignal::ResetRight);
                         datapath.signal_alu(AluSignal::InverseRight);
@@ -329,6 +366,173 @@ impl<const M: usize> InstructionDecoder<M> {
                 _ => Err(MachineError::InvalidDecoderCall),
             },
         }
+    }
+
+    fn execute_stack(
+        &self,
+        stack: &StackOpHigher,
+        tick_count: u8,
+        datapath: &mut DataPath<M>,
+    ) -> CUResult {
+        match stack.opcode {
+            StackOp::Push => {
+                // 1 tick - regs[esp] - 1 -> regs[esp]
+                // 2 tick - regs[esp] -> mem_addr
+                // 3 tick -
+                //  REG: regs[REG] -> mem_in_buf
+                //  IMMED: operand_buf -> mem_in_buf
+                // 4 tick - mem_in_buf -> memory[mem_addr]
+                match tick_count {
+                    1 => {
+                        datapath.signal_left_alu(AluLeftMuxSel::Registers(StackPointer));
+                        datapath.signal_alu(AluSignal::ResetRight);
+                        datapath.signal_alu(AluSignal::InverseRight);
+                        datapath.signal_alu_perform(
+                            AluOpCode::Add,
+                            false,
+                            AluOutDemuxSel::Registers(StackPointer),
+                        );
+                    },
+                    2 => {
+                        datapath.signal_left_alu(AluLeftMuxSel::Registers(StackPointer));
+                        datapath.signal_alu(AluSignal::ResetRight);
+                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutDemuxSel::MemAddr);
+                    },
+                    3 => match stack.args {
+                        StackOpHigherArgs::Register(id) => {
+                            datapath.signal_left_alu(AluLeftMuxSel::Registers(id));
+                            datapath.signal_alu(AluSignal::ResetRight);
+                            datapath.signal_alu_perform(
+                                AluOpCode::Add,
+                                false,
+                                AluOutDemuxSel::MemInBuf,
+                            );
+                        },
+                        StackOpHigherArgs::Immed(_) => {
+                            datapath.signal_alu(AluSignal::ResetLeft);
+                            datapath.signal_right_alu(AluRightMuxSel::Decoder {
+                                src: &self.operand_buf,
+                            });
+                            datapath.signal_alu_perform(
+                                AluOpCode::Add,
+                                false,
+                                AluOutDemuxSel::MemInBuf,
+                            );
+                        },
+                        StackOpHigherArgs::None => return Err(MachineError::InvalidDecoderCall),
+                    },
+                    4 => {
+                        datapath.signal_write();
+                        return Ok(ControlUnitState::cycle_start());
+                    },
+                    _ => return Err(MachineError::InvalidDecoderCall),
+                }
+            },
+            StackOp::Pop => {
+                let id = match stack.args {
+                    StackOpHigherArgs::Register(id) => id,
+                    StackOpHigherArgs::Immed(_) | StackOpHigherArgs::None => {
+                        return Err(MachineError::InvalidDecoderCall)
+                    },
+                };
+                // 1 tick - regs[esp] -> mem_addr
+                // 2 tick - (memory[mem_addr] -> regs[REG]) && regs[esp] + 1 -> regs[esp]
+                match tick_count {
+                    1 => {
+                        datapath.signal_left_alu(AluLeftMuxSel::Registers(StackPointer));
+                        datapath.signal_alu(AluSignal::ResetRight);
+                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutDemuxSel::MemAddr);
+                    },
+                    2 => {
+                        datapath.signal_read(ReadDemuxSel::Registers(id));
+
+                        datapath.signal_left_alu(AluLeftMuxSel::Registers(StackPointer));
+                        datapath.signal_alu(AluSignal::ResetRight);
+                        datapath.signal_alu(AluSignal::AddRightOne);
+                        datapath.signal_alu_perform(
+                            AluOpCode::Add,
+                            false,
+                            AluOutDemuxSel::Registers(StackPointer),
+                        );
+
+                        return Ok(ControlUnitState::cycle_start());
+                    },
+                    _ => return Err(MachineError::InvalidDecoderCall),
+                }
+            },
+            StackOp::Call => {
+                // 1 tick - regs[esp] - 1 -> regs[esp]
+                // 2 tick - regs[esp] -> mem_addr
+                // 3 tick - regs[eip] -> mem_in_buf
+                // 4 tick - (mem_in_buf -> memory[mem_addr]) && (operand_buf -> regs[eip])
+                match tick_count {
+                    1 => {
+                        datapath.signal_left_alu(AluLeftMuxSel::Registers(StackPointer));
+                        datapath.signal_alu(AluSignal::ResetRight);
+                        datapath.signal_alu(AluSignal::InverseRight);
+                        datapath.signal_alu_perform(
+                            AluOpCode::Add,
+                            false,
+                            AluOutDemuxSel::Registers(StackPointer),
+                        );
+                    },
+                    2 => {
+                        datapath.signal_left_alu(AluLeftMuxSel::Registers(StackPointer));
+                        datapath.signal_alu(AluSignal::ResetRight);
+                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutDemuxSel::MemAddr);
+                    },
+                    3 => {
+                        datapath.signal_left_alu(AluLeftMuxSel::Registers(InstructionPointer));
+                        datapath.signal_alu(AluSignal::ResetRight);
+                        datapath.signal_alu_perform(
+                            AluOpCode::Add,
+                            false,
+                            AluOutDemuxSel::MemInBuf,
+                        );
+                    },
+                    4 => {
+                        datapath.signal_write();
+
+                        datapath.signal_alu(AluSignal::ResetLeft);
+                        datapath
+                            .signal_right_alu(AluRightMuxSel::Decoder { src: &self.operand_buf });
+                        datapath.signal_alu_perform(
+                            AluOpCode::Add,
+                            false,
+                            AluOutDemuxSel::Registers(InstructionPointer),
+                        );
+                        return Ok(ControlUnitState::default());
+                    },
+                    _ => return Err(MachineError::InvalidDecoderCall),
+                }
+            },
+            StackOp::Ret => {
+                // 1 tick - regs[esp] -> mem_addr
+                // 2 tick - (memory[mem_addr] -> eip) && (regs[esp] + 1 -> esp)
+                match tick_count {
+                    1 => {
+                        datapath.signal_left_alu(AluLeftMuxSel::Registers(StackPointer));
+                        datapath.signal_alu(AluSignal::ResetRight);
+                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutDemuxSel::MemAddr);
+                    },
+                    2 => {
+                        datapath.signal_read(ReadDemuxSel::Registers(InstructionPointer));
+
+                        datapath.signal_left_alu(AluLeftMuxSel::Registers(StackPointer));
+                        datapath.signal_alu(AluSignal::ResetRight);
+                        datapath.signal_alu(AluSignal::AddRightOne);
+                        datapath.signal_alu_perform(
+                            AluOpCode::Add,
+                            false,
+                            AluOutDemuxSel::Registers(StackPointer),
+                        );
+                        return Ok(ControlUnitState::cycle_start());
+                    },
+                    _ => return Err(MachineError::InvalidDecoderCall),
+                }
+            },
+        }
+        Ok(ControlUnitState::ExecuteInstruction { tick_count: tick_count + 1 })
     }
 }
 
@@ -442,7 +646,8 @@ impl<const MEM_SIZE: usize, const TICK_LIMIT: usize> ControlUnit<MEM_SIZE, TICK_
 
     fn inc_eip(&mut self) -> CUResult {
         self.datapath.signal_left_alu(AluLeftMuxSel::Registers(InstructionPointer));
-        self.datapath.signal_alu(AluSignal::SetRightOne);
+        self.datapath.signal_alu(AluSignal::ResetRight);
+        self.datapath.signal_alu(AluSignal::AddRightOne);
         self.datapath.signal_alu_perform(
             AluOpCode::Add,
             false,

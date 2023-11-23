@@ -19,8 +19,29 @@ translator_input: |-
 
   end:
     mov eax, [result]
+    call print_uint
     exit
 
 
+  print_uint:
+    mov ebx, 10
+    mov ecx, esp
+
+  print_uint_loop:
+    dec esp
+    mov edx, 0
+    div
+    add edx, 48
+    mov [esp], edx
+    cmp eax, 0
+    jnz print_uint_loop
+  print_uint_print:
+    mov eax, [esp]
+    out 1
+    inc esp
+    cmp esp, ecx
+    jnz print_uint_print
+  print_uint_end:
+    ret
 
 machine_input: foo

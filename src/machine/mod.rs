@@ -22,6 +22,8 @@ pub enum MachineError {
     ISAError(#[from] ISAError),
     #[error("Encountered invalid call to decoder")]
     InvalidDecoderCall,
+    #[error("Encountered invalid call for division")]
+    InvalidDivisionCall,
     #[error("No device connected to port {0} found")]
     NonexistentPort(PortId),
     #[error("Device doesn't support specified operation")]
@@ -44,7 +46,7 @@ pub fn main(code_path: &Path, input_path: &Path) -> Result<(), MachineError> {
     ports.add_device(1, PortDevice::OutputOnly(OutputOnlyDevice::to_stdout()));
 
     let datapath = DataPath::new(program, ports);
-    let mut control_unit: ControlUnit<4096, 4096> = ControlUnit::new(datapath);
+    let mut control_unit: ControlUnit<4096, 8192> = ControlUnit::new(datapath);
 
     loop {
         if let Err(e) = control_unit.tick() {

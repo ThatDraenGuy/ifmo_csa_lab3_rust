@@ -548,6 +548,7 @@ impl From<StackOpLower> for MachineWord {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum ControlOp {
     Exit, // выполняет завершение работы
+    Div, // DIV - деление значения в eax на значение из ebx. В eax кладётся частное, в edx - остаток
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -596,6 +597,7 @@ static OPCODE_KEYWORDS: phf::Map<&str, Instruction> = phf_map! {
     "in" => Instruction::Io(IoOp::In),
     "out" => Instruction::Io(IoOp::Out),
 // Инструкции управления
+    "div" => Instruction::Control(ControlOp::Div),
     "exit" => Instruction::Control(ControlOp::Exit),
 // Интсрукции стэка
     "push" => Instruction::Stack(StackOp::Push),

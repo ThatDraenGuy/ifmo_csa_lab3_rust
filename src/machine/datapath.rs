@@ -153,8 +153,9 @@ use self::ports::PortSet;
 // ------------------------- FLAG SET -------------------------
 #[derive(Default, Debug)]
 pub struct FlagSet {
-    pub zero: bool, // ZF
-    pub sign: bool, // SF
+    pub zero: bool,  // ZF
+    pub sign: bool,  // SF
+    pub carry: bool, // CF
 }
 
 // ------------------------- REGISTER SET -------------------------
@@ -217,11 +218,11 @@ mod alu {
 
     pub enum AluOpCode {
         Add,
-        Cmp,
         Mov,
         Stc,
         Shl,
         Shr,
+        Ror,
     }
 
     impl Alu {
@@ -251,30 +252,27 @@ mod alu {
         pub(super) fn perform(&mut self, opcode: AluOpCode, flags: Option<&mut FlagSet>) -> u32 {
             let left = if self.invert_left { !self.left } else { self.left };
             let right = if self.invert_right { !self.right } else { self.right };
-            let right = if self.add_right_one { right + 1 } else { right };
+            let right = if self.add_right_one { right.wrapping_add(1) } else { right };
 
-            let num = match opcode {
-                AluOpCode::Add => left.wrapping_add(right),
-                AluOpCode::Cmp => left.wrapping_sub(right),
-                AluOpCode::Mov => right,
-                AluOpCode::Stc => (right & 0xFFFF0000) + (left & 0x0000FFFF),
-                AluOpCode::Shl => left << right,
-                AluOpCode::Shr => left >> right,
+            let (num, carry) = match opcode {
+                AluOpCode::Add => left.overflowing_add(right),
+                AluOpCode::Mov => (right, false),
+                AluOpCode::Stc => ((right & 0xFFFF0000) + (left & 0x0000FFFF), false),
+                AluOpCode::Shl => left.overflowing_shl(right),
+                AluOpCode::Shr => left.overflowing_shr(right),
+                AluOpCode::Ror => (left.rotate_right(right), false),
             };
 
             if let Some(flags) = flags {
                 flags.zero = num == 0;
                 flags.sign = num >> 31 == 1;
+                flags.carry = carry;
             }
 
             self.invert_left = false;
             self.invert_right = false;
             self.add_right_one = false;
-            if let AluOpCode::Cmp = opcode {
-                left
-            } else {
-                num
-            }
+            num
         }
     }
 }
@@ -366,8 +364,8 @@ pub enum AluOutDemuxSel<'a> {
     Registers(RegisterId),
     MemAddr,
     MemInBuf,
+    None,
 }
-#[allow(unused)] // Инверсия левого входа АЛУ не пригодилась для реализованного сабсета комманд
 pub enum AluSignal {
     ResetLeft,
     ResetRight,
@@ -434,6 +432,7 @@ impl<const MEMORY_SIZE: usize> DataPath<MEMORY_SIZE> {
             AluOutDemuxSel::Registers(id) => self.regs[id] = res,
             AluOutDemuxSel::MemAddr => self.mem_addr = res.into(),
             AluOutDemuxSel::MemInBuf => self.mem_in_buf = MachineWord::Data(Immed::new(res)),
+            AluOutDemuxSel::None => (),
         }
     }
     pub fn signal_ports(&mut self, sel: PortsMuxSel) -> Result<(), MachineError> {
@@ -454,13 +453,16 @@ impl<const MEMORY_SIZE: usize> DataPath<MEMORY_SIZE> {
 impl<const M: usize> Display for DataPath<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "REGS: eax:{eax:#010x}, ebx:{ebx:#010x}, ecx:{ecx:#010x}, edx:{edx:#010x}, eip:{eip:#010x}, esp:{esp:#010x}",
+            "REGS: eax:{eax:#010x}, ebx:{ebx:#010x}, ecx:{ecx:#010x}, edx:{edx:#010x}, eip:{eip:#010x}, esp:{esp:#010x}; FLAGS: {SF}|{ZF}|{CF}",
             eax = self.regs.acc,
             ebx = self.regs.base,
             ecx = self.regs.count,
             edx = self.regs.data,
             eip = self.regs.instr,
             esp = self.regs.stack,
+            SF = if self.flags.sign { 'T' } else { 'F' },
+            ZF = if self.flags.zero { 'T' } else { 'F' },
+            CF = if self.flags.carry { 'T' } else { 'F' },
         ))
     }
 }

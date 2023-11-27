@@ -1,5 +1,5 @@
 translator_input: |-
-  hello: word "Hello"
+  hello: word "Hello, world!"
 
   start: 
     mov eax, hello

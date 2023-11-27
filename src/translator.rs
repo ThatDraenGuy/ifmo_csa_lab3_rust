@@ -156,30 +156,165 @@ impl FromStr for Operand {
 // Тип для удобства итерации по коду
 
 struct TokenIterator<'a> {
-    inner: core::slice::Iter<'a, String>,
+    // inner: core::slice::Iter<'a, String>,
+    state: TokenIteratorState,
+    chars: std::str::Chars<'a>,
+}
+enum TokenIteratorState {
+    /// whitespace-символы
+    Delimiter,
+    /// После обратного слэша, до последующего символа
+    Backslash,
+    /// Слово без кавычек
+    Unquoted,
+    /// После обратного слэша в слове без кавычек
+    UnquotedBackslash,
+    /// Слово в одинарных кавычках
+    SingleQuoted,
+    /// Слово в двойных кавычках
+    DoubleQuoted,
+    /// После обратного слэша в слове в двойных кавычках
+    DoubleQuotedBackslash,
+    /// Комментарий
+    Comment,
 }
 
 impl<'a> TokenIterator<'a> {
-    pub fn new(tokens: &'a [String]) -> Self {
-        Self { inner: tokens.iter() }
+    pub fn new(code: &'a str) -> Self {
+        Self { state: TokenIteratorState::Delimiter, chars: code.chars() }
     }
+    pub fn next_string(&mut self) -> Result<String, TranslatorError> {
+        use TokenIteratorState::*;
 
-    pub fn next_str(&mut self) -> Result<&'a str, TranslatorError> {
-        Ok(self.inner.next().ok_or(TranslatorError::EndOfInput)?.as_str())
+        let mut word = String::new();
+        let chars = &mut self.chars;
+        let state = &mut self.state;
+
+        loop {
+            let c = chars.next();
+            *state = match state {
+                Delimiter => match c {
+                    None => return Err(TranslatorError::EndOfInput),
+                    Some(c @ '\'') => {
+                        word.push(c);
+                        SingleQuoted
+                    },
+                    Some(c @ '\"') => {
+                        word.push(c);
+                        DoubleQuoted
+                    },
+                    Some('\\') => Backslash,
+                    Some('\t') | Some(' ') | Some('\n') => Delimiter,
+                    Some(';') => Comment,
+                    Some(c) => {
+                        word.push(c);
+                        Unquoted
+                    },
+                },
+                Backslash => match c {
+                    None => {
+                        word.push('\\');
+                        *state = Delimiter;
+                        break;
+                    },
+                    Some('\n') => Delimiter,
+                    Some(c) => {
+                        word.push(c);
+                        Unquoted
+                    },
+                },
+                Unquoted => match c {
+                    None => {
+                        *state = Delimiter;
+                        break;
+                    },
+                    Some(c @ '\'') => {
+                        word.push(c);
+                        SingleQuoted
+                    },
+                    Some(c @ '\"') => {
+                        word.push(c);
+                        DoubleQuoted
+                    },
+                    Some('\\') => UnquotedBackslash,
+                    Some('\t') | Some(' ') | Some('\n') => {
+                        *state = Delimiter;
+                        break;
+                    },
+                    Some(c) => {
+                        word.push(c);
+                        Unquoted
+                    },
+                },
+                UnquotedBackslash => match c {
+                    None => {
+                        word.push('\\');
+                        *state = Delimiter;
+                        break;
+                    },
+                    Some('\n') => Unquoted,
+                    Some(c) => {
+                        word.push(c);
+                        Unquoted
+                    },
+                },
+                SingleQuoted => match c {
+                    None => return Err(TranslatorError::EndOfInput),
+                    Some(c @ '\'') => {
+                        word.push(c);
+                        Unquoted
+                    },
+                    Some(c) => {
+                        word.push(c);
+                        SingleQuoted
+                    },
+                },
+                DoubleQuoted => match c {
+                    None => return Err(TranslatorError::EndOfInput),
+                    Some(c @ '\"') => {
+                        word.push(c);
+                        Unquoted
+                    },
+                    Some('\\') => DoubleQuotedBackslash,
+                    Some(c) => {
+                        word.push(c);
+                        DoubleQuoted
+                    },
+                },
+                DoubleQuotedBackslash => match c {
+                    None => return Err(TranslatorError::EndOfInput),
+                    Some('\n') => DoubleQuoted,
+                    Some(c @ '$') | Some(c @ '`') | Some(c @ '"') | Some(c @ '\\') => {
+                        word.push(c);
+                        DoubleQuoted
+                    },
+                    Some(c) => {
+                        word.push('\\');
+                        word.push(c);
+                        DoubleQuoted
+                    },
+                },
+                Comment => match c {
+                    None => return Err(TranslatorError::EndOfInput),
+                    Some('\n') => Delimiter,
+                    Some(_) => Comment,
+                },
+            }
+        }
+        Ok(word)
     }
 
     pub fn next_token(&mut self) -> Result<Token, TranslatorError> {
-        self.inner.next().ok_or(TranslatorError::EndOfInput)?.as_str().parse()
+        self.next_string()?.parse()
     }
-
     pub fn next_token_with_suffix(&mut self, suffix: char) -> Result<Token, TranslatorError> {
-        let str = self.inner.next().ok_or(TranslatorError::EndOfInput)?.as_str();
-        if str.ends_with(suffix) {
-            str[0..str.len() - 1].parse()
+        let string = self.next_string()?;
+        if string.ends_with(suffix) {
+            string[0..string.len() - 1].parse()
         } else {
             Err(TranslatorError::UnexpectedToken {
                 expected: format!("Token with suffix {}", suffix),
-                found: str.to_owned(),
+                found: string.to_owned(),
             })
         }
     }
@@ -265,28 +400,29 @@ struct Translator;
 impl Translator {
     pub fn translate(source_path: &Path, target_path: &Path) -> Result<(), TranslatorError> {
         let builder = ProgramBuilder::new();
-        let tokens = Self::read_tokens(source_path)?;
+        let code = Self::read_tokens(source_path)?;
 
-        let mut builder = Self::resolve_labels(builder, &mut TokenIterator::new(&tokens))?;
-        Self::perform_translation(&mut builder, &mut TokenIterator::new(&tokens))?;
+        let mut builder = Self::resolve_labels(builder, &mut TokenIterator::new(&code))?;
+        Self::perform_translation(&mut builder, &mut TokenIterator::new(&code))?;
         let program = builder.build()?;
 
         Ok(program.write_to_file(target_path)?)
     }
 
-    fn read_tokens(source_path: &Path) -> Result<Vec<String>, TranslatorError> {
-        let code = fs::read_to_string(source_path)?;
-        let tokens = code.split_whitespace().map(|token| token.to_string()).collect();
-
-        Ok(tokens)
+    fn read_tokens(source_path: &Path) -> Result<String, TranslatorError> {
+        Ok(fs::read_to_string(source_path)?)
+        // let code = fs::read_to_string(source_path)?;
+        // let tokens = code.split_whitespace().map(|token| token.to_string()).collect();
+        //
+        // Ok(tokens)
     }
 
     fn resolve_labels(
         mut builder: ProgramBuilder<LabelsUnresolved>,
         iter: &mut TokenIterator,
     ) -> Result<ProgramBuilder<LabelsResolved>, TranslatorError> {
-        while let Ok(raw_token) = iter.next_str() {
-            match Token::from_str(raw_token)? {
+        while let Ok(raw_token) = iter.next_string() {
+            match raw_token.parse()? {
                 Token::TranslatorDirective(directive) => {
                     Self::calculate_directive(&mut builder, directive, iter)
                 },
@@ -311,8 +447,8 @@ impl Translator {
         builder: &mut ProgramBuilder<LabelsResolved>,
         iter: &mut TokenIterator,
     ) -> Result<(), TranslatorError> {
-        while let Ok(raw_token) = iter.next_str() {
-            match Token::from_str(raw_token)? {
+        while let Ok(raw_token) = iter.next_string() {
+            match raw_token.parse()? {
                 Token::TranslatorDirective(directive) => {
                     Self::handle_directive(builder, directive, iter)
                 },

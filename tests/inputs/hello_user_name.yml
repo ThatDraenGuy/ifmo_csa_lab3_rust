@@ -1,6 +1,6 @@
 translator_input: |-
-  prompt: word "What_is_your_name?"
-  hello_start: word "Hello,_"
+  prompt: word "What is your name?"
+  hello_start: word "Hello, "
   hello_end: word "!"
   username_buf: word 0 word 0 word 0 word 0
 

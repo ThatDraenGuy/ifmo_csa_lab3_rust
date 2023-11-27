@@ -410,8 +410,8 @@ impl Translator {
         Self::perform_translation(&mut builder, &mut TokenIterator::new(&code))?;
         let program = builder.build();
         debug!("Built a program: from {src_line_count} lines of source code to {code_word_count} machine words ({code_byte_count} bytes)", 
-            src_line_count=code.lines().count(), 
-            code_word_count=program.len(), 
+            src_line_count=code.lines().count(),
+            code_word_count=program.len(),
             code_byte_count=program.len() * 4
         );
 

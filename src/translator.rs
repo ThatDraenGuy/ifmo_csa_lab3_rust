@@ -363,6 +363,8 @@ impl ProgramBuilder<LabelsUnresolved> {
             return Err(TranslatorError::EntrypointMissing);
         }
 
+        debug!("Resolved {count} labels", count = self.labels.len());
+
         Ok(ProgramBuilder {
             labels: self.labels,
             current_address: MemoryAddress::null(),
@@ -391,8 +393,8 @@ impl ProgramBuilder<LabelsResolved> {
         self.labels.get(label).cloned().ok_or(TranslatorError::UnresolvedLabel)
     }
 
-    pub fn build(self) -> Result<Program, TranslatorError> {
-        Ok(Program::new(self.machine_code, self.entrypoint.unwrap_or(MemoryAddress::null())))
+    pub fn build(self) -> Program {
+        Program::new(self.machine_code, self.entrypoint.unwrap_or(MemoryAddress::null()))
     }
 }
 
@@ -400,21 +402,20 @@ struct Translator;
 impl Translator {
     pub fn translate(source_path: &Path, target_path: &Path) -> Result<(), TranslatorError> {
         let builder = ProgramBuilder::new();
-        let code = Self::read_tokens(source_path)?;
+        let code = fs::read_to_string(source_path)?;
 
+        debug!("Starting first pass");
         let mut builder = Self::resolve_labels(builder, &mut TokenIterator::new(&code))?;
+        debug!("Starting second pass");
         Self::perform_translation(&mut builder, &mut TokenIterator::new(&code))?;
-        let program = builder.build()?;
+        let program = builder.build();
+        debug!("Built a program: from {src_line_count} lines of source code to {code_word_count} machine words ({code_byte_count} bytes)", 
+            src_line_count=code.lines().count(), 
+            code_word_count=program.len(), 
+            code_byte_count=program.len() * 4
+        );
 
         Ok(program.write_to_file(target_path)?)
-    }
-
-    fn read_tokens(source_path: &Path) -> Result<String, TranslatorError> {
-        Ok(fs::read_to_string(source_path)?)
-        // let code = fs::read_to_string(source_path)?;
-        // let tokens = code.split_whitespace().map(|token| token.to_string()).collect();
-        //
-        // Ok(tokens)
     }
 
     fn resolve_labels(
@@ -608,7 +609,7 @@ impl Translator {
 }
 
 pub fn main(source_path: &Path, target_path: &Path) -> Result<(), TranslatorError> {
-    debug!("Starting translation process");
+    debug!("Starting translator");
     Translator::translate(source_path, target_path)?;
     debug!("Successfully finished translation process");
     Ok(())

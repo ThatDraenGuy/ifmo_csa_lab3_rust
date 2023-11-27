@@ -38,7 +38,6 @@ pub enum MachineError {
 
 pub fn main(code_path: &Path, input_path: &Path) -> Result<(), MachineError> {
     debug!("Starting virtual machine");
-
     let program = Program::read_from_file(code_path)?;
 
     let mut ports = PortSet::new();
@@ -57,6 +56,9 @@ pub fn main(code_path: &Path, input_path: &Path) -> Result<(), MachineError> {
             }
         }
     }
+    let (tick_count, instruction_count) = control_unit.current_state();
+    debug!("Executed {instruction_count} instructions in {tick_count} ticks");
+    debug!("Succesfully finished simulation");
 
     Ok(())
 }

@@ -791,14 +791,24 @@ impl ControlUnitState {
 /// ```
 #[derive(Default, Debug)]
 pub struct ControlUnit<const MEM_SIZE: usize, const TICK_LIMIT: usize> {
-    datapath: DataPath<MEM_SIZE>,          // Блок обработки данных
-    decoder: InstructionDecoder<MEM_SIZE>, // Декодер инструкций
-    tick: usize,                           // Номер текущего такта
-    state: ControlUnitState,               // Текущее состояние
+    /// Блок обработки данных
+    datapath: DataPath<MEM_SIZE>,
+    /// Декодер инструкций
+    decoder: InstructionDecoder<MEM_SIZE>,
+    /// Текущее состояние
+    state: ControlUnitState,
+    /// Номер текущего такта
+    tick: usize,
+    /// Номер текущей инструкции
+    instruction: usize,
 }
 impl<const MEM_SIZE: usize, const TICK_LIMIT: usize> ControlUnit<MEM_SIZE, TICK_LIMIT> {
     pub fn new(datapath: DataPath<MEM_SIZE>) -> Self {
         Self { datapath, ..Default::default() }
+    }
+
+    pub fn current_state(&self) -> (usize, usize) {
+        (self.tick, self.instruction)
     }
 
     pub fn tick(&mut self) -> Result<(), MachineError> {
@@ -816,6 +826,7 @@ impl<const MEM_SIZE: usize, const TICK_LIMIT: usize> ControlUnit<MEM_SIZE, TICK_
             },
             ControlUnitState::ExecuteInstruction { tick_count } => {
                 if tick_count == 1 {
+                    self.instruction += 1;
                     debug!("{:#}", self);
                 }
                 self.decoder.execute(tick_count, &mut self.datapath)

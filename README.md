@@ -566,3 +566,6 @@ end:
 
 | ФИО | <алг> | <LoC> | <code байт> | <code инстр.> | <инстр.> | <такт.> | <вариант> |
 |-|-|-|-|-|-|-|-|
+Хайкин Олег Игоревич | hello | 91 | 396 | 99 | 341 | 2658 | asm \| cisc \| neum \| hw \| tick \| struct \| stream \| port \| pstr \| prob2 \| \[4\]char |
+Хайкин Олег Игоревич | cat | 8 | 36 | 9 | 39 | 301 | asm \| cisc \| neum \| hw \| tick \| struct \| stream \| port \| pstr \| prob2 \| \[4\]char |
+Хайкин Олег Игоревич | prob2 | 44 | 200 | 50 | 310 | 4932 (из них ~2000 на сам алгоритм, остальное для вывода результата) | asm \| cisc \| neum \| hw \| tick \| struct \| stream \| port \| pstr \| prob2 \| \[4\]char |

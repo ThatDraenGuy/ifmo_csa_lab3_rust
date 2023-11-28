@@ -1,14 +1,19 @@
 use super::{datapath::*, MachineError};
-use crate::isa::{RegisterId::*, *};
+use crate::isa::{instructions::*, RegisterId::*, *};
 use log::debug;
 use std::fmt::Display;
 
 type CUResult = Result<ControlUnitState, MachineError>;
 
+/// Блок декодирования и выполнения инструкций
 #[derive(Default, Debug)]
 struct InstructionDecoder<const M: usize> {
+    /// Регистр для выполняемой инструкции
     pub instruction: MachineWord,
+    /// Регистр для операнда инструкции (если таковой имеется и необходим для текущей инструкции).
+    /// Иногда используется как обычный буфер
     pub operand_buf: MachineWord,
+    /// Буфер-счётчик. Используется в делении
     pub count_buf: u32,
 }
 impl<const M: usize> InstructionDecoder<M> {
@@ -77,7 +82,7 @@ impl<const M: usize> InstructionDecoder<M> {
                 );
                 return Ok(ControlUnitState::ExecuteInstruction { tick_count: 1 });
             },
-            _ => return Err(MachineError::InvalidDecoderCall),
+            _ => return Err(MachineError::InvalidTickCall),
         };
         Ok(ControlUnitState::FetchOperand { tick_count: tick_count + 1 })
     }
@@ -128,7 +133,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         call_alu(datapath, AluOutDemuxSel::Registers(dest));
                         return Ok(ControlUnitState::cycle_start());
                     },
-                    _ => return Err(MachineError::InvalidDecoderCall),
+                    _ => return Err(MachineError::InvalidTickCall),
                 }
             },
             MathOpHigherArgs::RegToRegMem(dest, src) => {
@@ -154,7 +159,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_write();
                         return Ok(ControlUnitState::cycle_start());
                     },
-                    _ => return Err(MachineError::InvalidDecoderCall),
+                    _ => return Err(MachineError::InvalidTickCall),
                 }
             },
             MathOpHigherArgs::RegMemToReg(dest, src) => {
@@ -176,7 +181,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         call_alu(datapath, AluOutDemuxSel::Registers(dest));
                         return Ok(ControlUnitState::cycle_start());
                     },
-                    _ => return Err(MachineError::InvalidDecoderCall),
+                    _ => return Err(MachineError::InvalidTickCall),
                 }
             },
             MathOpHigherArgs::MemToReg(dest, _) => {
@@ -199,7 +204,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         call_alu(datapath, AluOutDemuxSel::Registers(dest));
                         return Ok(ControlUnitState::cycle_start());
                     },
-                    _ => return Err(MachineError::InvalidDecoderCall),
+                    _ => return Err(MachineError::InvalidTickCall),
                 }
             },
             MathOpHigherArgs::RegToMem(src, _) => {
@@ -226,7 +231,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_write();
                         return Ok(ControlUnitState::cycle_start());
                     },
-                    _ => return Err(MachineError::InvalidDecoderCall),
+                    _ => return Err(MachineError::InvalidTickCall),
                 }
             },
             MathOpHigherArgs::RegImmed(dest, _) => {
@@ -239,7 +244,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         call_alu(datapath, AluOutDemuxSel::Registers(dest));
                         return Ok(ControlUnitState::cycle_start());
                     },
-                    _ => return Err(MachineError::InvalidDecoderCall),
+                    _ => return Err(MachineError::InvalidTickCall),
                 }
             },
         };
@@ -275,7 +280,7 @@ impl<const M: usize> InstructionDecoder<M> {
                     Ok(ControlUnitState::cycle_start())
                 }
             },
-            _ => Err(MachineError::InvalidDecoderCall),
+            _ => Err(MachineError::InvalidTickCall),
         }
     }
 
@@ -298,7 +303,7 @@ impl<const M: usize> InstructionDecoder<M> {
                     );
                     Ok(ControlUnitState::cycle_start())
                 },
-                _ => Err(MachineError::InvalidDecoderCall),
+                _ => Err(MachineError::InvalidTickCall),
             },
             AlterOp::Dec => match tick_count {
                 1 => {
@@ -312,7 +317,7 @@ impl<const M: usize> InstructionDecoder<M> {
                     );
                     Ok(ControlUnitState::cycle_start())
                 },
-                _ => Err(MachineError::InvalidDecoderCall),
+                _ => Err(MachineError::InvalidTickCall),
             },
         }
     }
@@ -327,7 +332,7 @@ impl<const M: usize> InstructionDecoder<M> {
                 };
                 Ok(ControlUnitState::cycle_start())
             },
-            _ => Err(MachineError::InvalidDecoderCall),
+            _ => Err(MachineError::InvalidTickCall),
         }
     }
 
@@ -340,20 +345,20 @@ impl<const M: usize> InstructionDecoder<M> {
         match control.0 {
             ControlOp::Exit => match tick_count {
                 1 => Err(MachineError::Exit),
-                _ => Err(MachineError::InvalidDecoderCall),
+                _ => Err(MachineError::InvalidTickCall),
             },
             ControlOp::Div => {
-                // делимое - EAX; делитель - REG
-                // 0 -> edx
-                // while !SF: REG << 1 flags; count_buf + 1 -> count_buf
-                // eax - REG -> eax flags
-                // if CF: eax + REG -> eax
-                // if !CF: edx + 1
-                // REG >> 1; edx << 1
-                // count_buf - 1 -> count_buf flags;
-                // if ZF finish
-
                 match tick_count {
+                    // -----------PREPARATION-----------
+                    // 1 tick - regs[ecx] -> operand_buf && count_buf++
+                    // 2 tick - 0 -> regs[edx]
+                    // 3 tick - -regs[ebx] -> regs[ecx]
+                    // 4 tick - regs[ebx] -> regs[ebx] + flags
+                    // 5 tick -
+                    //      if !SF: count_buf++, ERR if count_buf > 32 (ebx = 0)
+                    //      else: GOTO tick 8
+                    // 6 tick - regs[ecx] << 1 -> regs[ecx]
+                    // 7 tick - regs[ebx] << 1 -> regs[ebx]; GOTO tick 4
                     1 => {
                         self.count_buf += 1;
 
@@ -425,6 +430,16 @@ impl<const M: usize> InstructionDecoder<M> {
                         );
                         return Ok(ControlUnitState::ExecuteInstruction { tick_count: 4 });
                     },
+                    // ------------DIVISION------------
+                    // 8 tick - regs[eax] + regs[ecx] -> regs[eax] + flags
+                    // 9 tick -
+                    //      IF !CF: regs[eax] + regs[ebx] -> regs[eax]
+                    //      ELSE: regs[edx] + 1 -> regs[edx]
+                    // 10 tick - count_buf--; IF count_buf == 0: GOTO tick 15
+                    // 11 tick - regs[ecx] + 1 -> regs[ecx]
+                    // 12 tick - regs[ecx] ROR 1 -> regs[ecx]
+                    // 13 tick - regs[ebx] >> 1 -> regs[ebx]
+                    // 14 tick - regs[edx] << 1 -> regs[edx]; GOTO tick 8
                     8 => {
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(Accumulator));
                         datapath.signal_right_alu(AluRightMuxSel::Registers(Count));
@@ -501,6 +516,11 @@ impl<const M: usize> InstructionDecoder<M> {
                         );
                         return Ok(ControlUnitState::ExecuteInstruction { tick_count: 8 });
                     },
+                    // -----------CONCLUSION-----------
+                    // 15 tick - operand_buf -> regs[ecx]
+                    // 16 tick - regs[edx] -> operand_buf
+                    // 17 tick - regs[eax] -> regs[edx]
+                    // 18 tick - operand_buf -> regs[eax]
                     15 => {
                         datapath.signal_alu(AluSignal::ResetLeft);
                         datapath
@@ -540,7 +560,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         );
                         return Ok(ControlUnitState::cycle_start());
                     },
-                    _ => return Err(MachineError::InvalidDecoderCall),
+                    _ => return Err(MachineError::InvalidTickCall),
                 }
 
                 Ok(ControlUnitState::ExecuteInstruction { tick_count: tick_count + 1 })
@@ -599,20 +619,20 @@ impl<const M: usize> InstructionDecoder<M> {
                                 AluOutDemuxSel::MemInBuf,
                             );
                         },
-                        StackOpHigherArgs::None => return Err(MachineError::InvalidDecoderCall),
+                        StackOpHigherArgs::None => return Err(MachineError::InvalidTickCall),
                     },
                     4 => {
                         datapath.signal_write();
                         return Ok(ControlUnitState::cycle_start());
                     },
-                    _ => return Err(MachineError::InvalidDecoderCall),
+                    _ => return Err(MachineError::InvalidTickCall),
                 }
             },
             StackOp::Pop => {
                 let id = match stack.args {
                     StackOpHigherArgs::Register(id) => id,
                     StackOpHigherArgs::Immed(_) | StackOpHigherArgs::None => {
-                        return Err(MachineError::InvalidDecoderCall)
+                        return Err(MachineError::InvalidTickCall)
                     },
                 };
                 // 1 tick - regs[esp] -> mem_addr
@@ -637,7 +657,7 @@ impl<const M: usize> InstructionDecoder<M> {
 
                         return Ok(ControlUnitState::cycle_start());
                     },
-                    _ => return Err(MachineError::InvalidDecoderCall),
+                    _ => return Err(MachineError::InvalidTickCall),
                 }
             },
             StackOp::Call => {
@@ -683,7 +703,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         );
                         return Ok(ControlUnitState::default());
                     },
-                    _ => return Err(MachineError::InvalidDecoderCall),
+                    _ => return Err(MachineError::InvalidTickCall),
                 }
             },
             StackOp::Ret => {
@@ -708,7 +728,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         );
                         return Ok(ControlUnitState::cycle_start());
                     },
-                    _ => return Err(MachineError::InvalidDecoderCall),
+                    _ => return Err(MachineError::InvalidTickCall),
                 }
             },
         }
@@ -716,23 +736,24 @@ impl<const M: usize> InstructionDecoder<M> {
     }
 }
 
-#[derive(Default, Debug)]
+/// Состояние процессора. Является "заменой" микрокода.
+#[derive(Debug)]
 enum ControlUnitState {
-    IncIP,
-    #[default]
-    MovIPToMemAddr,
-    FetchInstruction,
-    DecodeInstruction,
-    FetchOperand {
-        tick_count: u8,
-    },
-    ExecuteInstruction {
-        tick_count: u8,
-    },
+    /// Цикл выборки инструкции
+    FetchInstruction { tick_count: u8 },
+    /// Цикл выборки операнда.
+    FetchOperand { tick_count: u8 },
+    /// Цикл исполнения инструкции
+    ExecuteInstruction { tick_count: u8 },
 }
 impl ControlUnitState {
     pub fn cycle_start() -> Self {
-        Self::IncIP
+        Self::FetchInstruction { tick_count: 1 }
+    }
+}
+impl Default for ControlUnitState {
+    fn default() -> Self {
+        Self::FetchInstruction { tick_count: 2 }
     }
 }
 
@@ -817,10 +838,7 @@ impl<const MEM_SIZE: usize, const TICK_LIMIT: usize> ControlUnit<MEM_SIZE, TICK_
             return Err(MachineError::TickLimitReached(TICK_LIMIT));
         }
         self.state = match self.state {
-            ControlUnitState::IncIP => self.inc_eip(),
-            ControlUnitState::MovIPToMemAddr => self.eip_to_mem_addr(),
-            ControlUnitState::FetchInstruction => self.fetch_instruction(),
-            ControlUnitState::DecodeInstruction => self.decoder.decode(),
+            ControlUnitState::FetchInstruction { tick_count } => self.fetch_instruction(tick_count),
             ControlUnitState::FetchOperand { tick_count } => {
                 self.decoder.fetch_operand(tick_count, &mut self.datapath)
             },
@@ -835,28 +853,37 @@ impl<const MEM_SIZE: usize, const TICK_LIMIT: usize> ControlUnit<MEM_SIZE, TICK_
         Ok(())
     }
 
-    fn inc_eip(&mut self) -> CUResult {
-        self.datapath.signal_left_alu(AluLeftMuxSel::Registers(InstructionPointer));
-        self.datapath.signal_alu(AluSignal::ResetRight);
-        self.datapath.signal_alu(AluSignal::AddRightOne);
-        self.datapath.signal_alu_perform(
-            AluOpCode::Add,
-            false,
-            AluOutDemuxSel::Registers(InstructionPointer),
-        );
-        Ok(ControlUnitState::MovIPToMemAddr)
-    }
-
-    fn eip_to_mem_addr(&mut self) -> CUResult {
-        self.datapath.signal_left_alu(AluLeftMuxSel::Registers(InstructionPointer));
-        self.datapath.signal_alu(AluSignal::ResetRight);
-        self.datapath.signal_alu_perform(AluOpCode::Add, false, AluOutDemuxSel::MemAddr);
-        Ok(ControlUnitState::FetchInstruction)
-    }
-
-    fn fetch_instruction(&mut self) -> CUResult {
-        self.datapath.signal_read(ReadDemuxSel::Decoder { dest: &mut self.decoder.instruction });
-        Ok(ControlUnitState::DecodeInstruction)
+    fn fetch_instruction(&mut self, tick_count: u8) -> CUResult {
+        match tick_count {
+            // 1 tick - regs[eip] + 1 -> regs[eip]
+            // 2 tick - regs[eip] -> mem_addr
+            // 3 tick - memory[mem_addr] -> instruction
+            // 4 tick - decode instruction
+            1 => {
+                self.datapath.signal_left_alu(AluLeftMuxSel::Registers(InstructionPointer));
+                self.datapath.signal_alu(AluSignal::ResetRight);
+                self.datapath.signal_alu(AluSignal::AddRightOne);
+                self.datapath.signal_alu_perform(
+                    AluOpCode::Add,
+                    false,
+                    AluOutDemuxSel::Registers(InstructionPointer),
+                );
+            },
+            2 => {
+                self.datapath.signal_left_alu(AluLeftMuxSel::Registers(InstructionPointer));
+                self.datapath.signal_alu(AluSignal::ResetRight);
+                self.datapath.signal_alu_perform(AluOpCode::Add, false, AluOutDemuxSel::MemAddr);
+            },
+            3 => {
+                self.datapath
+                    .signal_read(ReadDemuxSel::Decoder { dest: &mut self.decoder.instruction });
+            },
+            4 => {
+                return self.decoder.decode();
+            },
+            _ => return Err(MachineError::InvalidTickCall),
+        };
+        Ok(ControlUnitState::FetchInstruction { tick_count: tick_count + 1 })
     }
 }
 impl<const MEM_SIZE: usize, const TICK_LIMIT: usize> Display for ControlUnit<MEM_SIZE, TICK_LIMIT> {

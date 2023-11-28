@@ -367,36 +367,36 @@ CI настроен для работы при выполнении push и pull
 
 [snapshot-file](./tests/snapshots/integration__test@hello.yml.snap)
 ```asm
-hello: word "Hello"
+  hello: word "Hello, world!"
 
-start: 
+  start: 
     mov eax, hello
     call print_string
     exit
 
-print_string:
-    mov edx, eax
-    mov ecx, [eax]
+  print_string:     ;EAX - указатель на начало строки (размер)
+    mov edx, eax    ;используем edx в  качестве указателя на текущий набор символов
+    mov ecx, [eax]  ;читаем длину строки в ecx
+    jz print_string_end ;если длина нулевая - завершаем работу
+
+  print_string_main_loop:
+    inc edx         ;переходим к следующей ячейке с символами
+    mov eax, [edx]  ;читаем набор символов в eax
+    mov ebx, 4      ;используем ebx как счётчик символов в одной ячейке
+
+  print_string_word_loop:
+    out 1           ;выводим символ
+
+    dec ecx         ;уменьшаем оставшуюся длину строки. Если строка кончилась - завершаем работу
     jz print_string_end
 
-print_string_main_loop:
-    inc edx
-    mov eax, [edx]
-    mov ebx, 4
-
-print_string_word_loop:
-    out 1
-
-    dec ecx
-    jz print_string_end
-
-    dec ebx
+    dec ebx         ;уменьшаем число оставшихся символов в текущей ячейке. Если кончились - переходим к следующей
     jz print_string_main_loop
 
-    shr eax, 8
+    shr eax, 8      ;сдвигаем eax для получения следующего символа в младшем байте
     jmp print_string_word_loop
 
-print_string_end:
+  print_string_end:
     ret
 ```
 
@@ -405,13 +405,13 @@ print_string_end:
 
 [snapshot-file](./tests/snapshots/integration__test@cat.yml.snap)
 ```asm
-start: 
+  start: 
     in 0
-    cmp eax, 0
+    cmp eax, 0  ;если встречаем NULL - заканчиваем программу
     jz end
     out 1
     jmp start
-end:
+  end:
     exit
 ```
 
@@ -420,8 +420,8 @@ end:
 
 [snapshot-file](./tests/snapshots/integration__test@hello_user_name.yml.snap)
 ```asm
-  prompt: word "What_is_your_name?"
-  hello_start: word "Hello,_"
+  prompt: word "What is your name?"
+  hello_start: word "Hello, "
   hello_end: word "!"
   username_buf: word 0 word 0 word 0 word 0
 
@@ -445,39 +445,39 @@ end:
     exit
 
 
-  read_string:
-    push eax
+  read_string:      ;EAX - указатель на буфер
+    push eax        ;сохраняем указатель на начало строки (ячейка для длины)
     mov edx, eax
-    mov ecx, 0
+    mov ecx, 0      ;используем ecx для хранения длины прочитанной строки
 
   read_string_main_loop:
-    inc edx
-    mov ebx, 0
+    inc edx         ;смещяем edx на ячейку для следующей четвёрки символов
+    mov ebx, 0      ;сбрасываем ebx - используем его как индекс по байтам ячейки (0 - 3)
 
   read_string_word_loop:
-    mov eax, 0
+    mov eax, 0      ;читаем символ
     in 0
-    cmp eax, 0
+    cmp eax, 0      ;если NULL - оканчиваем чтение
     jz read_string_end
-    inc ecx
-    push ebx
+    inc ecx         ;увеличиваем длину строки
+    push ebx        ;сохраняем текущий индекс в ячейке
   read_string_shift_loop:
-    cmp ebx, 0
+    cmp ebx, 0      ;если индекс равен нулю - сохраняем символ в ячейку
     jz read_string_word_stuff
-    shl eax, 8
-    dec ebx
+    shl eax, 8      ;иначе - смещяем символ влево на одну позицию
+    dec ebx         ;и уменьшаем индекс "отступа"
     jmp read_string_shift_loop
   read_string_word_stuff:
-    add [edx], eax
-    pop ebx
-    inc ebx
-    cmp ebx, 4
+    add [edx], eax  ;сохраняем символ в ячейку
+    pop ebx         ;восстанавливаем индекс этого символа
+    inc ebx         ;подготавливаем индекс для следующего символа
+    cmp ebx, 4      ;если место в ячейке кончилось - переходим к следующей
     jz read_string_main_loop
     jmp read_string_word_loop
 
   read_string_end:
-    pop eax
-    mov [eax], ecx
+    pop eax         ;восстанавливаем указатель на начало строки
+    mov [eax], ecx  ;записываем размер строки
     ret
 
 
@@ -487,26 +487,26 @@ end:
     ret
 
 
-  print_string:
-    mov edx, eax
-    mov ecx, [eax]
-    jz print_string_end
+  print_string:     ;EAX - указатель на начало строки (размер)
+    mov edx, eax    ;используем edx в  качестве указателя на текущий набор символов
+    mov ecx, [eax]  ;читаем длину строки в ecx
+    jz print_string_end ;если длина нулевая - завершаем работу
 
   print_string_main_loop:
-    inc edx
-    mov eax, [edx]
-    mov ebx, 4
+    inc edx         ;переходим к следующей ячейке с символами
+    mov eax, [edx]  ;читаем набор символов в eax
+    mov ebx, 4      ;используем ebx как счётчик символов в одной ячейке
 
   print_string_word_loop:
-    out 1
+    out 1           ;выводим символ
 
-    dec ecx
+    dec ecx         ;уменьшаем оставшуюся длину строки. Если строка кончилась - завершаем работу
     jz print_string_end
 
-    dec ebx
+    dec ebx         ;уменьшаем число оставшихся символов в текущей ячейке. Если кончились - переходим к следующей
     jz print_string_main_loop
 
-    shr eax, 8
+    shr eax, 8      ;сдвигаем eax для получения следующего символа в младшем байте
     jmp print_string_word_loop
 
   print_string_end:
@@ -518,22 +518,22 @@ end:
 
 [snapshot-file](./tests/snapshots/integration__test@prob2.yml.snap)
 ```asm
-  num: word 1
-  result: word 2
+  num: word 1         ;буфер для предпоследнего числа последовательности
+  result: word 2      ;буфер для результата
 
   start:
-    mov ecx, 3
-    mov eax, 2
+    mov ecx, 3        ;счётчик до следующего чётного числа
+    mov eax, 2        ;последнее число в последовательности
   loop:
-    mov edx, eax
-    add eax, [num]
-    mov [num], edx
-    dec ecx
+    mov edx, eax      ;сохраняем последнее число
+    add eax, [num]    ;рассчитываем следующее число
+    mov [num], edx    ;обновляем предпоследнее число
+    dec ecx           ;уменьшаем счётчик. Если до чётного числа ещё не дошли - повторяем процесс
     jnz loop
-    mov ecx, 3
-    cmp eax, 4000000
+    mov ecx, 3        ;сбрасываем счётчик
+    cmp eax, 4000000  ;если достигли предела - завершаем работу
     jns end
-    add [result], eax
+    add [result], eax ;обновляем результат
     jmp loop
 
   end:
@@ -542,23 +542,23 @@ end:
     exit
 
 
-  print_uint:
-    mov ebx, 10
-    mov ecx, esp
+  print_uint:       ;EAX - число
+    mov ebx, 10     ;записываем делитель в ebx
+    mov ecx, esp    ;сохраняем текущую позицию в стэке
 
   print_uint_loop:
-    dec esp
-    mov edx, 0
-    div
-    add edx, 48
-    mov [esp], edx
-    cmp eax, 0
+    dec esp         ;выделяем место под символ
+    mov edx, 0      ;очищаем edx
+    div             ;делим eax на ebx: в eax - частное, в edx - остаток
+    add edx, 48     ;"смещаем" остаток для получения ASCII-цифры
+    mov [esp], edx  ;сохраняем получившийся символ
+    cmp eax, 0      ;если ещё остались разряды числа - повторяем процесс
     jnz print_uint_loop
   print_uint_print:
-    mov eax, [esp]
-    out 1
-    inc esp
-    cmp esp, ecx
+    mov eax, [esp]  ;читаем старший невыведенный символ
+    out 1           ;выводим его
+    inc esp         ;освобождаем память с выведенным символом
+    cmp esp, ecx    ;если символы не кончились - повторяем процесс
     jnz print_uint_print
   print_uint_end:
     ret

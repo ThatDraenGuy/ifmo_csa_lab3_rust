@@ -20,8 +20,8 @@ pub enum MachineError {
     BufferError,
     #[error(transparent)]
     ISAError(#[from] ISAError),
-    #[error("Encountered invalid call to decoder")]
-    InvalidDecoderCall,
+    #[error("Encountered invalid tick call in control unit")]
+    InvalidTickCall,
     #[error("Encountered invalid call for division")]
     InvalidDivisionCall,
     #[error("No device connected to port {0} found")]

@@ -117,7 +117,6 @@ pub mod ports {
             let buf = [value; 1];
             let res = match self {
                 OutputOnlyDevice::ToFile(file) => file.write(&buf),
-                // OutputOnlyDevice::ToStdout => std::io::stdout().lock().write(&buf),
                 OutputOnlyDevice::ToStdout => {
                     let mut handle = std::io::stdout().lock();
                     let res = handle.write(&buf)?;
@@ -335,46 +334,85 @@ use super::MachineError;
 /// ```
 #[derive(Default, Debug)]
 pub struct DataPath<const MEMORY_SIZE: usize> {
+    /// Память процессора
     memory: Memory<MEMORY_SIZE>,
+    /// Набор общедоступных регистров
     regs: RegisterSet,
+    /// Набор флагов
     flags: FlagSet,
+    /// Набор портов к внешним устройствам
     ports: PortSet,
+    /// АЛУ
     alu: Alu,
+    /// Регистр, определяющий адрес обращения к памяти
     mem_addr: MemoryAddress,
+    /// Регистр-буфер для записи в память
     mem_in_buf: MachineWord,
+    /// Регистр-буфер для чтения из памяти
     mem_out_buf: MachineWord,
 }
 
+/// Сигнал для демультиплексора на выходе из памяти
 pub enum ReadDemuxSel<'a> {
+    /// Чтение в выходной буфер
     MemOutBuf,
+    /// Чтение в регистр
     Registers(RegisterId),
+    /// Чтение в регистр в декодере
     Decoder { dest: &'a mut MachineWord },
 }
+
+/// Сигнал для мультиплексора на левом входе АЛУ
 pub enum AluLeftMuxSel {
+    /// Значение из выходного буфера
     MemOutBuf,
+    /// Значение из регистра
     Registers(RegisterId),
 }
+
+/// Сигнал для мультиплексора на правом входе АЛУ
 pub enum AluRightMuxSel<'a> {
+    /// Значение из выходного буфера
     MemOutBuf,
+    /// Значение из регистра
     Registers(RegisterId),
+    /// Значение из регистра в декодере
     Decoder { src: &'a MachineWord },
 }
+
+/// Сигнал для демультиплексора на выходе из АЛУ
 pub enum AluOutDemuxSel<'a> {
+    /// Передача в регистр в декодере
     Decoder { dest: &'a mut MachineWord },
+    /// Передача в регистр
     Registers(RegisterId),
+    /// Передача в адресный регистр
     MemAddr,
+    /// Передача во входной буфер
     MemInBuf,
+    /// Отсутствие передачи
     None,
 }
+
+/// Сингал особого поведения АЛУ
 pub enum AluSignal {
+    /// Сброс левого значения
     ResetLeft,
+    /// СБрос правого значения
     ResetRight,
+    /// Инверсия битов левого значения
     InverseLeft,
+    /// Инверсия битов правого значения
     InverseRight,
+    /// Прибавление единицы к правому значению
     AddRightOne,
 }
+
+/// Сигнал операции взаимодействия с внешними устройствами
 pub enum PortsMuxSel {
+    /// Ввод
     In(PortId),
+    /// Вывод
     Out(PortId),
 }
 

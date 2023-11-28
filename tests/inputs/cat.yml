@@ -1,7 +1,7 @@
 translator_input: |-
   start: 
     in 0
-    cmp eax, 0
+    cmp eax, 0  ;если встречаем NULL - заканчиваем программу
     jz end
     out 1
     jmp start

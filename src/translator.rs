@@ -33,10 +33,11 @@ pub enum TranslatorError {
     StringIsTooLong,
 }
 
-// Ключевые слова, не транслирующиеся в машинные команды
+/// Ключевые слова, не транслирующиеся в машинные команды
 #[derive(Debug)]
 enum TranslatorDirective {
-    Word, // Директива для записи литералов и значений в память
+    /// Директива для записи литералов и значений в память
+    Word,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -60,7 +61,7 @@ impl PartialEq<str> for Label {
     }
 }
 
-// Токен транслятора
+/// Токен транслятора
 #[derive(Debug)]
 enum Token {
     TranslatorDirective(TranslatorDirective),
@@ -153,10 +154,8 @@ impl FromStr for Operand {
     }
 }
 
-// Тип для удобства итерации по коду
-
+/// Тип для удобства итерации по коду
 struct TokenIterator<'a> {
-    // inner: core::slice::Iter<'a, String>,
     state: TokenIteratorState,
     chars: std::str::Chars<'a>,
 }

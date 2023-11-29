@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::*;
 
 /// Математические инструкции. Принимают на вход 2 аргумента - dest и src и как-то модифицируют dest на основе src
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub enum MathOp {
     /// MOV - записывает значение src в dest
     Mov,
@@ -121,7 +121,7 @@ impl From<MathOpLower> for MachineWord {
 // ================= BRANCH OP - START =================
 
 /// Инструкции ветвления. Принимают на вход один аргумент (адрес) и переходят по нему при выполнении некоторого условия
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub enum BranchOp {
     /// JMP - безусловный переход
     Jmp,
@@ -184,7 +184,7 @@ impl From<BranchOpLower> for MachineWord {
 // ================= ALTER OP - START =================
 
 /// Инструкции альтерации. Выполняют действие над регистром
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub enum AlterOp {
     /// INC - инкремент регистра
     Inc,
@@ -227,7 +227,7 @@ impl From<AlterOpWord> for MachineWord {
 // ================= IO OP - START =================
 
 /// Инструкции ввода-вывода. Выполняют операцию ввода или вывода над указанным портом
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub enum IoOp {
     In,
     Out,
@@ -275,7 +275,7 @@ impl From<IoOpWord> for MachineWord {
 // ================= STACK OP - START =================
 
 /// Инструкции для работы со стэком.
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub enum StackOp {
     Push,
     Pop,
@@ -392,7 +392,7 @@ impl From<StackOpLower> for MachineWord {
 // ================= CONTROL OP - START =================
 
 /// Инструкции управления. Не принимают аргументов и как-либо влияют на работу процессора
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub enum ControlOp {
     /// EXIT - выполняет завершение работы
     Exit,

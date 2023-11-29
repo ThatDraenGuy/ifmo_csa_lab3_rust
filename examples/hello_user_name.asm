@@ -1,0 +1,91 @@
+prompt: word "What is your name?"
+hello_start: word "Hello, "
+hello_end: word "!"
+username_buf: word 0 word 0 word 0 word 0
+
+start: 
+    mov eax, prompt
+    call print_string
+    call print_newline
+
+    mov eax, username_buf
+    call read_string
+
+    mov eax, hello_start
+    call print_string
+
+    mov eax, username_buf
+    call print_string
+
+    mov eax, hello_end
+    call print_string
+
+    exit
+
+
+read_string:      ;EAX - указатель на буфер
+    push eax        ;сохраняем указатель на начало строки (ячейка для длины)
+    mov edx, eax
+    mov ecx, 0      ;используем ecx для хранения длины прочитанной строки
+
+read_string_main_loop:
+    inc edx         ;смещяем edx на ячейку для следующей четвёрки символов
+    mov ebx, 0      ;сбрасываем ebx - используем его как индекс по байтам ячейки (0 - 3)
+
+read_string_word_loop:
+    mov eax, 0      ;читаем символ
+    in 0
+    cmp eax, 0      ;если NULL - оканчиваем чтение
+    jz read_string_end
+    inc ecx         ;увеличиваем длину строки
+    push ebx        ;сохраняем текущий индекс в ячейке
+read_string_shift_loop:
+    cmp ebx, 0      ;если индекс равен нулю - сохраняем символ в ячейку
+    jz read_string_word_stuff
+    shl eax, 8      ;иначе - смещяем символ влево на одну позицию
+    dec ebx         ;и уменьшаем индекс "отступа"
+    jmp read_string_shift_loop
+read_string_word_stuff:
+    add [edx], eax  ;сохраняем символ в ячейку
+    pop ebx         ;восстанавливаем индекс этого символа
+    inc ebx         ;подготавливаем индекс для следующего символа
+    cmp ebx, 4      ;если место в ячейке кончилось - переходим к следующей
+    jz read_string_main_loop
+    jmp read_string_word_loop
+
+read_string_end:
+    pop eax         ;восстанавливаем указатель на начало строки
+    mov [eax], ecx  ;записываем размер строки
+    ret
+
+
+print_newline:
+    mov eax, 10
+    out 1
+    ret
+
+
+print_string:     ;EAX - указатель на начало строки (размер)
+    mov edx, eax    ;используем edx в  качестве указателя на текущий набор символов
+    mov ecx, [eax]  ;читаем длину строки в ecx
+    jz print_string_end ;если длина нулевая - завершаем работу
+
+print_string_main_loop:
+    inc edx         ;переходим к следующей ячейке с символами
+    mov eax, [edx]  ;читаем набор символов в eax
+    mov ebx, 4      ;используем ebx как счётчик символов в одной ячейке
+
+print_string_word_loop:
+    out 1           ;выводим символ
+
+    dec ecx         ;уменьшаем оставшуюся длину строки. Если строка кончилась - завершаем работу
+    jz print_string_end
+
+    dec ebx         ;уменьшаем число оставшихся символов в текущей ячейке. Если кончились - переходим к следующей
+    jz print_string_main_loop
+
+    shr eax, 8      ;сдвигаем eax для получения следующего символа в младшем байте
+    jmp print_string_word_loop
+
+print_string_end:
+    ret

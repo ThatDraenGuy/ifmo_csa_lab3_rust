@@ -150,7 +150,7 @@ pub mod ports {
 use self::ports::PortSet;
 
 // ------------------------- FLAG SET -------------------------
-#[derive(Default, Debug)]
+#[derive(Default, Debug, PartialEq)]
 pub struct FlagSet {
     pub zero: bool,  // ZF
     pub sign: bool,  // SF
@@ -272,6 +272,45 @@ mod alu {
             self.invert_right = false;
             self.add_right_one = false;
             num
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use crate::machine::MachineError;
+
+        use super::*;
+
+        #[test]
+        fn test_alu() -> Result<(), MachineError> {
+            let mut alu = Alu {
+                left: 8,
+                right: 1,
+                invert_left: false,
+                invert_right: false,
+                add_right_one: false,
+            };
+            let mut flags = FlagSet::default();
+
+            assert_eq!(alu.perform(AluOpCode::Add, None), 9);
+            assert_eq!(alu.perform(AluOpCode::Shl, None), 16);
+            assert_eq!(
+                {
+                    alu.perform(AluOpCode::Add, Some(&mut flags));
+                    &flags
+                },
+                &FlagSet { zero: false, sign: false, carry: false }
+            );
+            assert_eq!(
+                {
+                    alu.set_left(u32::MAX);
+                    alu.reset_right();
+                    let res = alu.perform(AluOpCode::Shr, Some(&mut flags));
+                    (res, &flags)
+                },
+                (u32::MAX, &FlagSet { zero: false, sign: true, carry: false })
+            );
+            Ok(())
         }
     }
 }

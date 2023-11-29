@@ -78,7 +78,7 @@ pub trait InstructionTrait: Clone {
 }
 
 #[enum_dispatch]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Instruction {
     Math(MathOp),
     Branch(BranchOp),
@@ -238,7 +238,7 @@ impl From<u32> for MemoryAddress {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Immed(u32);
 pub type ImmedHigher = u16;
 pub type ImmedLower = u16;
@@ -303,7 +303,7 @@ impl From<MemoryAddress> for Immed {
 }
 
 /// Аргумент операции представляется несколькими типами
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub enum OpArg {
     /// литерал
     Immed(Immed),
@@ -347,7 +347,7 @@ pub enum OpArgNum {
 /// В реализации на уровне структуры часть слова, определяющая id регистра
 /// задана явно через тип enum'а.
 /// Для расчёта размера будем считать, что такая часть слова занимает 4 бита
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
 pub enum RegisterId {
     Accumulator,
     Base,
@@ -376,3 +376,43 @@ impl FromStr for RegisterId {
 
 /// Уникально определяет порт.
 pub type PortId = u16;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_register() -> Result<(), ISAError> {
+        assert_eq!(RegisterId::from_str("eax")?, RegisterId::Accumulator);
+        assert_eq!(RegisterId::from_str("eip")?, RegisterId::InstructionPointer);
+        assert!(RegisterId::from_str("rax").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_immed() -> Result<(), ISAError> {
+        assert_eq!(Immed::from_str("'c'")?, Immed(99));
+        assert_eq!(Immed::from_str("32")?, Immed(32));
+        assert_eq!(Immed::from_str("-1")?, Immed(u32::MAX));
+        assert!(Immed::from_str("bruh").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_op_arg() -> Result<(), ISAError> {
+        assert_eq!(OpArg::from_str("[eax]")?, OpArg::RegMem(RegisterId::Accumulator));
+        assert_eq!(OpArg::from_str("edx")?, OpArg::Reg(RegisterId::Data));
+        assert_eq!(OpArg::from_str("156")?, OpArg::Immed(Immed(156)));
+        assert!(OpArg::from_str("[ecx").is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_instruction() -> Result<(), ISAError> {
+        assert_eq!(Instruction::from_str("mov")?, Instruction::Math(MathOp::Mov));
+        assert_eq!(Instruction::from_str("in")?, Instruction::Io(IoOp::In));
+        assert_eq!(Instruction::from_str("call")?, Instruction::Stack(StackOp::Call));
+        assert!(Instruction::from_str("mul").is_err());
+        Ok(())
+    }
+}

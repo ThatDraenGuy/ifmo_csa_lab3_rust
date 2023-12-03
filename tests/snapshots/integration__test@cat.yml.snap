@@ -6,34 +6,115 @@ input_file: tests/inputs/cat.yml
 translator_output: |-
   (
       code: [
-          OpHigher(Io((
-              opcode: In,
-              arg: 0,
-          ))),
-          OpHigher(Math((
-              opcode: Cmp,
-              args: RegImmed(Accumulator, 0),
-          ))),
-          OpLower(Math(RegImmed(0))),
-          OpHigher(Branch((
-              opcode: Jz,
-              arg_higher: 0,
-          ))),
-          OpLower(Branch((
-              arg_lower: 9,
-          ))),
-          OpHigher(Io((
-              opcode: Out,
-              arg: 1,
-          ))),
-          OpHigher(Branch((
-              opcode: Jmp,
-              arg_higher: 0,
-          ))),
-          OpLower(Branch((
-              arg_lower: 1,
-          ))),
-          OpHigher(Control((Exit))),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 2,
+                      src_symb: 6,
+                  ),
+                  addr: (1),
+              ),
+              word: OpHigher(Io((
+                  opcode: In,
+                  arg: 0,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 3,
+                      src_symb: 7,
+                  ),
+                  addr: (2),
+              ),
+              word: OpHigher(Math((
+                  opcode: Cmp,
+                  args: RegImmed(Accumulator, 0),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 3,
+                      src_symb: 7,
+                  ),
+                  addr: (3),
+              ),
+              word: OpLower(Math(RegImmed(0))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 4,
+                      src_symb: 6,
+                  ),
+                  addr: (4),
+              ),
+              word: OpHigher(Branch((
+                  opcode: Jz,
+                  arg_higher: 0,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 4,
+                      src_symb: 6,
+                  ),
+                  addr: (5),
+              ),
+              word: OpLower(Branch((
+                  arg_lower: 9,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 5,
+                      src_symb: 7,
+                  ),
+                  addr: (6),
+              ),
+              word: OpHigher(Io((
+                  opcode: Out,
+                  arg: 1,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 6,
+                      src_symb: 7,
+                  ),
+                  addr: (7),
+              ),
+              word: OpHigher(Branch((
+                  opcode: Jmp,
+                  arg_higher: 0,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 6,
+                      src_symb: 7,
+                  ),
+                  addr: (8),
+              ),
+              word: OpLower(Branch((
+                  arg_lower: 1,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 8,
+                      src_symb: 3,
+                  ),
+                  addr: (9),
+              ),
+              word: OpHigher(Control((Exit))),
+          ),
       ],
       entrypoint: (1),
   )

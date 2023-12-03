@@ -2,6 +2,7 @@ pub mod instructions;
 
 use self::instructions::*;
 use enum_dispatch::enum_dispatch;
+use itertools::Itertools;
 use phf::phf_map;
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
@@ -28,12 +29,12 @@ pub enum ISAError {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Program {
-    code: Vec<MachineWord>,
+    code: Vec<DebuggedWord>,
     entrypoint: MemoryAddress,
 }
 
 impl Program {
-    pub fn new(code: Vec<MachineWord>, entrypoint: MemoryAddress) -> Self {
+    pub fn new(code: Vec<DebuggedWord>, entrypoint: MemoryAddress) -> Self {
         Self { code, entrypoint }
     }
 
@@ -58,7 +59,7 @@ impl Program {
 
 impl From<Program> for Vec<MachineWord> {
     fn from(value: Program) -> Self {
-        value.code
+        value.code.into_iter().map(|word| word.word).collect_vec()
     }
 }
 
@@ -86,6 +87,38 @@ pub enum Instruction {
     Io(IoOp),
     Control(ControlOp),
     Stack(StackOp),
+}
+
+/// Структура, описывающая позицию в исходном коде
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct SrcInfo {
+    /// Номер строки
+    pub src_line: u64,
+    /// Номер символа
+    pub src_symb: u64,
+}
+
+impl Default for SrcInfo {
+    fn default() -> Self {
+        Self { src_line: 1, src_symb: Default::default() }
+    }
+}
+
+/// Структура, описывающая Debug-информацию для машинного слова
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+pub struct DebugInfo {
+    /// Информация о позициив исходном коде, из которого было составлено слово
+    pub src_info: SrcInfo,
+    /// Информация о машинном адресе, на котором слово окажется
+    pub addr: MemoryAddress,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+pub struct DebuggedWord {
+    /// Debug-информация о слове
+    pub debug_info: DebugInfo,
+    /// Само слово
+    pub word: MachineWord,
 }
 
 pub const EMPTY_WORD: MachineWord = MachineWord::Empty;

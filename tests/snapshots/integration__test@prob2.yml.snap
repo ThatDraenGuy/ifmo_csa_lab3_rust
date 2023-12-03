@@ -6,150 +6,600 @@ input_file: tests/inputs/prob2.yml
 translator_output: |-
   (
       code: [
-          Data((1)),
-          Data((2)),
-          OpHigher(Math((
-              opcode: Mov,
-              args: RegImmed(Count, 0),
-          ))),
-          OpLower(Math(RegImmed(3))),
-          OpHigher(Math((
-              opcode: Mov,
-              args: RegImmed(Accumulator, 0),
-          ))),
-          OpLower(Math(RegImmed(2))),
-          OpHigher(Math((
-              opcode: Mov,
-              args: RegToReg(Data, Accumulator),
-          ))),
-          OpHigher(Math((
-              opcode: Add,
-              args: MemToReg(Accumulator, 0),
-          ))),
-          OpLower(Math(MemToReg(1))),
-          OpHigher(Math((
-              opcode: Mov,
-              args: RegToMem(Data, 0),
-          ))),
-          OpLower(Math(RegToMem(1))),
-          OpHigher(Alter((
-              opcode: Dec,
-              arg: Count,
-          ))),
-          OpHigher(Branch((
-              opcode: Jnz,
-              arg_higher: 0,
-          ))),
-          OpLower(Branch((
-              arg_lower: 7,
-          ))),
-          OpHigher(Math((
-              opcode: Mov,
-              args: RegImmed(Count, 0),
-          ))),
-          OpLower(Math(RegImmed(3))),
-          OpHigher(Math((
-              opcode: Cmp,
-              args: RegImmed(Accumulator, 61),
-          ))),
-          OpLower(Math(RegImmed(2304))),
-          OpHigher(Branch((
-              opcode: Jns,
-              arg_higher: 0,
-          ))),
-          OpLower(Branch((
-              arg_lower: 25,
-          ))),
-          OpHigher(Math((
-              opcode: Add,
-              args: RegToMem(Accumulator, 0),
-          ))),
-          OpLower(Math(RegToMem(2))),
-          OpHigher(Branch((
-              opcode: Jmp,
-              arg_higher: 0,
-          ))),
-          OpLower(Branch((
-              arg_lower: 7,
-          ))),
-          OpHigher(Math((
-              opcode: Mov,
-              args: MemToReg(Accumulator, 0),
-          ))),
-          OpLower(Math(MemToReg(2))),
-          OpHigher(Stack((
-              opcode: Call,
-              args: Immed(0),
-          ))),
-          OpLower(Stack(Immed(30))),
-          OpHigher(Control((Exit))),
-          OpHigher(Math((
-              opcode: Mov,
-              args: RegImmed(Base, 0),
-          ))),
-          OpLower(Math(RegImmed(10))),
-          OpHigher(Math((
-              opcode: Mov,
-              args: RegToReg(Count, StackPointer),
-          ))),
-          OpHigher(Alter((
-              opcode: Dec,
-              arg: StackPointer,
-          ))),
-          OpHigher(Math((
-              opcode: Mov,
-              args: RegImmed(Data, 0),
-          ))),
-          OpLower(Math(RegImmed(0))),
-          OpHigher(Control((Div))),
-          OpHigher(Math((
-              opcode: Add,
-              args: RegImmed(Data, 0),
-          ))),
-          OpLower(Math(RegImmed(48))),
-          OpHigher(Math((
-              opcode: Mov,
-              args: RegToRegMem(StackPointer, Data),
-          ))),
-          OpHigher(Math((
-              opcode: Cmp,
-              args: RegImmed(Accumulator, 0),
-          ))),
-          OpLower(Math(RegImmed(0))),
-          OpHigher(Branch((
-              opcode: Jnz,
-              arg_higher: 0,
-          ))),
-          OpLower(Branch((
-              arg_lower: 33,
-          ))),
-          OpHigher(Math((
-              opcode: Mov,
-              args: RegMemToReg(Accumulator, StackPointer),
-          ))),
-          OpHigher(Io((
-              opcode: Out,
-              arg: 1,
-          ))),
-          OpHigher(Alter((
-              opcode: Inc,
-              arg: StackPointer,
-          ))),
-          OpHigher(Math((
-              opcode: Cmp,
-              args: RegToReg(StackPointer, Count),
-          ))),
-          OpHigher(Branch((
-              opcode: Jnz,
-              arg_higher: 0,
-          ))),
-          OpLower(Branch((
-              arg_lower: 44,
-          ))),
-          OpHigher(Stack((
-              opcode: Ret,
-              args: None,
-          ))),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 1,
+                      src_symb: 11,
+                  ),
+                  addr: (1),
+              ),
+              word: Data((1)),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 2,
+                      src_symb: 14,
+                  ),
+                  addr: (2),
+              ),
+              word: Data((2)),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 5,
+                      src_symb: 7,
+                  ),
+                  addr: (3),
+              ),
+              word: OpHigher(Math((
+                  opcode: Mov,
+                  args: RegImmed(Count, 0),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 5,
+                      src_symb: 7,
+                  ),
+                  addr: (4),
+              ),
+              word: OpLower(Math(RegImmed(3))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 6,
+                      src_symb: 7,
+                  ),
+                  addr: (5),
+              ),
+              word: OpHigher(Math((
+                  opcode: Mov,
+                  args: RegImmed(Accumulator, 0),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 6,
+                      src_symb: 7,
+                  ),
+                  addr: (6),
+              ),
+              word: OpLower(Math(RegImmed(2))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 8,
+                      src_symb: 7,
+                  ),
+                  addr: (7),
+              ),
+              word: OpHigher(Math((
+                  opcode: Mov,
+                  args: RegToReg(Data, Accumulator),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 9,
+                      src_symb: 7,
+                  ),
+                  addr: (8),
+              ),
+              word: OpHigher(Math((
+                  opcode: Add,
+                  args: MemToReg(Accumulator, 0),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 9,
+                      src_symb: 7,
+                  ),
+                  addr: (9),
+              ),
+              word: OpLower(Math(MemToReg(1))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 10,
+                      src_symb: 7,
+                  ),
+                  addr: (10),
+              ),
+              word: OpHigher(Math((
+                  opcode: Mov,
+                  args: RegToMem(Data, 0),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 10,
+                      src_symb: 7,
+                  ),
+                  addr: (11),
+              ),
+              word: OpLower(Math(RegToMem(1))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 11,
+                      src_symb: 7,
+                  ),
+                  addr: (12),
+              ),
+              word: OpHigher(Alter((
+                  opcode: Dec,
+                  arg: Count,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 12,
+                      src_symb: 7,
+                  ),
+                  addr: (13),
+              ),
+              word: OpHigher(Branch((
+                  opcode: Jnz,
+                  arg_higher: 0,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 12,
+                      src_symb: 7,
+                  ),
+                  addr: (14),
+              ),
+              word: OpLower(Branch((
+                  arg_lower: 7,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 13,
+                      src_symb: 7,
+                  ),
+                  addr: (15),
+              ),
+              word: OpHigher(Math((
+                  opcode: Mov,
+                  args: RegImmed(Count, 0),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 13,
+                      src_symb: 7,
+                  ),
+                  addr: (16),
+              ),
+              word: OpLower(Math(RegImmed(3))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 14,
+                      src_symb: 7,
+                  ),
+                  addr: (17),
+              ),
+              word: OpHigher(Math((
+                  opcode: Cmp,
+                  args: RegImmed(Accumulator, 61),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 14,
+                      src_symb: 7,
+                  ),
+                  addr: (18),
+              ),
+              word: OpLower(Math(RegImmed(2304))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 15,
+                      src_symb: 7,
+                  ),
+                  addr: (19),
+              ),
+              word: OpHigher(Branch((
+                  opcode: Jns,
+                  arg_higher: 0,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 15,
+                      src_symb: 7,
+                  ),
+                  addr: (20),
+              ),
+              word: OpLower(Branch((
+                  arg_lower: 25,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 16,
+                      src_symb: 7,
+                  ),
+                  addr: (21),
+              ),
+              word: OpHigher(Math((
+                  opcode: Add,
+                  args: RegToMem(Accumulator, 0),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 16,
+                      src_symb: 7,
+                  ),
+                  addr: (22),
+              ),
+              word: OpLower(Math(RegToMem(2))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 17,
+                      src_symb: 7,
+                  ),
+                  addr: (23),
+              ),
+              word: OpHigher(Branch((
+                  opcode: Jmp,
+                  arg_higher: 0,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 17,
+                      src_symb: 7,
+                  ),
+                  addr: (24),
+              ),
+              word: OpLower(Branch((
+                  arg_lower: 7,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 20,
+                      src_symb: 7,
+                  ),
+                  addr: (25),
+              ),
+              word: OpHigher(Math((
+                  opcode: Mov,
+                  args: MemToReg(Accumulator, 0),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 20,
+                      src_symb: 7,
+                  ),
+                  addr: (26),
+              ),
+              word: OpLower(Math(MemToReg(2))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 21,
+                      src_symb: 8,
+                  ),
+                  addr: (27),
+              ),
+              word: OpHigher(Stack((
+                  opcode: Call,
+                  args: Immed(0),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 21,
+                      src_symb: 8,
+                  ),
+                  addr: (28),
+              ),
+              word: OpLower(Stack(Immed(30))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 22,
+                      src_symb: 3,
+                  ),
+                  addr: (29),
+              ),
+              word: OpHigher(Control((Exit))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 26,
+                      src_symb: 7,
+                  ),
+                  addr: (30),
+              ),
+              word: OpHigher(Math((
+                  opcode: Mov,
+                  args: RegImmed(Base, 0),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 26,
+                      src_symb: 7,
+                  ),
+                  addr: (31),
+              ),
+              word: OpLower(Math(RegImmed(10))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 27,
+                      src_symb: 7,
+                  ),
+                  addr: (32),
+              ),
+              word: OpHigher(Math((
+                  opcode: Mov,
+                  args: RegToReg(Count, StackPointer),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 30,
+                      src_symb: 7,
+                  ),
+                  addr: (33),
+              ),
+              word: OpHigher(Alter((
+                  opcode: Dec,
+                  arg: StackPointer,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 31,
+                      src_symb: 7,
+                  ),
+                  addr: (34),
+              ),
+              word: OpHigher(Math((
+                  opcode: Mov,
+                  args: RegImmed(Data, 0),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 31,
+                      src_symb: 7,
+                  ),
+                  addr: (35),
+              ),
+              word: OpLower(Math(RegImmed(0))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 32,
+                      src_symb: 3,
+                  ),
+                  addr: (36),
+              ),
+              word: OpHigher(Control((Div))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 33,
+                      src_symb: 7,
+                  ),
+                  addr: (37),
+              ),
+              word: OpHigher(Math((
+                  opcode: Add,
+                  args: RegImmed(Data, 0),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 33,
+                      src_symb: 7,
+                  ),
+                  addr: (38),
+              ),
+              word: OpLower(Math(RegImmed(48))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 34,
+                      src_symb: 7,
+                  ),
+                  addr: (39),
+              ),
+              word: OpHigher(Math((
+                  opcode: Mov,
+                  args: RegToRegMem(StackPointer, Data),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 35,
+                      src_symb: 7,
+                  ),
+                  addr: (40),
+              ),
+              word: OpHigher(Math((
+                  opcode: Cmp,
+                  args: RegImmed(Accumulator, 0),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 35,
+                      src_symb: 7,
+                  ),
+                  addr: (41),
+              ),
+              word: OpLower(Math(RegImmed(0))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 36,
+                      src_symb: 7,
+                  ),
+                  addr: (42),
+              ),
+              word: OpHigher(Branch((
+                  opcode: Jnz,
+                  arg_higher: 0,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 36,
+                      src_symb: 7,
+                  ),
+                  addr: (43),
+              ),
+              word: OpLower(Branch((
+                  arg_lower: 33,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 38,
+                      src_symb: 7,
+                  ),
+                  addr: (44),
+              ),
+              word: OpHigher(Math((
+                  opcode: Mov,
+                  args: RegMemToReg(Accumulator, StackPointer),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 39,
+                      src_symb: 7,
+                  ),
+                  addr: (45),
+              ),
+              word: OpHigher(Io((
+                  opcode: Out,
+                  arg: 1,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 40,
+                      src_symb: 7,
+                  ),
+                  addr: (46),
+              ),
+              word: OpHigher(Alter((
+                  opcode: Inc,
+                  arg: StackPointer,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 41,
+                      src_symb: 7,
+                  ),
+                  addr: (47),
+              ),
+              word: OpHigher(Math((
+                  opcode: Cmp,
+                  args: RegToReg(StackPointer, Count),
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 42,
+                      src_symb: 7,
+                  ),
+                  addr: (48),
+              ),
+              word: OpHigher(Branch((
+                  opcode: Jnz,
+                  arg_higher: 0,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 42,
+                      src_symb: 7,
+                  ),
+                  addr: (49),
+              ),
+              word: OpLower(Branch((
+                  arg_lower: 44,
+              ))),
+          ),
+          (
+              debug_info: (
+                  src_info: (
+                      src_line: 44,
+                      src_symb: 3,
+                  ),
+                  addr: (50),
+              ),
+              word: OpHigher(Stack((
+                  opcode: Ret,
+                  args: None,
+              ))),
+          ),
       ],
       entrypoint: (3),
   )

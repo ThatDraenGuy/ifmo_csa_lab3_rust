@@ -321,55 +321,50 @@ use super::MachineError;
 
 // ------------------------- DATAPATH -------------------------
 /// ```ignore
-///                     to Decoder
-///                   ▲     ▲     ▲                       │from Decoder               │from Decoder    ▲to Decoder
-///                   │     │     │                       │                           │                │
-///                   │     │     │                       │                           │                │
-///                   │     │     │                       │                           │                │
-///                   │     │     │                       │                           │                │
-///                   │     │     │                       │                           │                │
-///                   │     │     │                       │ ┌────────────────┐        │                │
-///                   │     │     │          ┌────────────┼─┤     Memory     │    ┌───▼────┐           │
-///                   │     │     │          │            │ │                ◄────┤Mem Addr◄──┐        │
-///                   │     │     │   sel ┌──▼──┐         │ │                │    └────────┘  │        │
-///                   │     │     │   ────►DEMUX│         │ │                │                │        │
-///                   │     │     │       └┬─┬─┬┘         │ │                │RD SIG          │        │
-///                   │     │     │        │ │ │          │ │                ◄────            │        │
-///                   │     │     └────────┘ │ │          │ │                │                │        │
-///                   │     │                │ │          │ │                │                │        │
-///                   │     │     ┌──────────┘ │          │ │                │WR SIG          │        │
-///                   │     │     │            │          │ │                ◄───             │        │
-///                   │  ┌──┴─────▼────┐       │          │ │                │                │        │
-/// to/from Ports     │  │  Registers  │       │          │ │                │   ┌──────────┐ │        │
-/// ◄─────────────────┼──►             │   ┌───▼───────┐  │ │                ◄───┤Mem In Buf│ │        │
-///                   │  │             │   │Mem Out Buf│  │ │                │   └─▲────────┘ │        │
-///                   │  └─▲─────┬─────┘   └────┬──────┘  │ └────────────────┘     │          │        │
-///                   │    │     │              │         │                        │          │        │
-///                   │    │     │ ┌────────────┤         │                        │          │        │
-///                   │    │     │ │            │         │                        │          │        │
-///                   │    │     ├─┼──────────┐ │ ┌───────┘                        │          │        │
-///                   │    │     │ │          │ │ │                                │          │        │
-///                   │    │ sel┌▼─▼┐        ┌▼─▼─▼┐sel                            │          │        │
-///                   │    │ ───►MUX│        │ MUX ◄───                            │          │        │
-///                   │    │    └─┬─┘        └─┬───┘                               │          │        │
-///                   │    │      │            │                                   │          │        │
-///                   │    │    ┌─▼────────────▼─┐                                 │          │        │
-///                   │    │    │      ALU       │                                 │          │        │
-///                   │    │    │                │ALU signals                      │          │        │
-///                   │    │    │                ◄───────                          │          │        │
-///                   │    │    │                │                                 │          │        │
-///                   │    │    │                │                                 │          │        │
-///                   │    │    └───────┬────────┘                                 │          │        │
-///                   │    │            │                        ┌─────┐           │          │        │
-///                   │    │            ├────────────────────────►flags├───────────┼──────────┼────────┘
-///                   │    │            │                        └─────┘           │          │
-///                   │    │       ┌────▼────┐sel                                  │          │
-///                   │    │       │  DEMUX  ◄───                                  │          │
-///                   │    │       └─┬─┬──┬─┬┘                                     │          │
-///                   │    │         │ │  │ │                                      │          │
-///                   │    └─────────┘ │  │ └──────────────────────────────────────┘          │
-///                   │                │  │                                                   │
-///                   └────────────────┘  └───────────────────────────────────────────────────┘
+///                  ▲to Control Unit         ▲to Control Unit       │from Control Unit            │from Control Unit    ▲to Control Unit
+///                  │                        │                      │                             │                     │
+///                  │                        │                      │                             ▼                     │
+///                  │                        │                      │                         sel┌───┐(from ALU)        │
+///                  │                        │                      │                         ──►│MUX│◄─────────────┐   │
+///                  │                        │                      │                            └┬──┘              │   │
+///                  │                        │                      │                             │       latch     │   │
+///                  │                        │                      │  ┌──────────────┐           ▼       mem addr  │   │
+///                  │                        │                      │  │    Memory    │         ┌────────┐◄───────  │   │
+///                  │            ┌───────────┴────────────┬─────────┼──┤              │◄────────┤mem addr│          │   │
+///                  │            │                        │         │  │              │         └────────┘          │   │
+///                  │            │                        │         │  │              │                             │   │
+///                  │            │                        │         │  │              │RD SIG                       │   │
+///                  │            │                        │         │  │              │◄─────                       │   │
+///                  │  latch     ▼                        │         │  │              │                             │   │
+///                  │  regs┌────────────┐                 │         │  │              │                             │   │
+///                  │ ────►│            │  latch          ▼         │  │              │WR SIG                       │   │
+///                  │      │ registers  │  mem out  ┌───────────┐   │  │              │◄─────                       │   │
+/// to/from Ports    │      │            │   ───────►│mem out buf│   │  │              │                             │   │
+///       ◄──────────┼─────►└─────────┬──┘           └┬──────────┘   │  │              │               latch         │   │
+///                  │         ▲      │               │              │  │              │   ┌──────────┐mem in        │   │
+///                  │         │      ├────────┐      │              │  │              │◄──┤mem in buf│◄─────        │   │
+///                  │         │      │        │      │              │  └──────────────┘   └──────────┘              │   │
+///                  │         │      │   ┌────┼──┬───┘              │                          ▲                    │   │
+///                  │         │      │   │    │  │    ┌─────────────┘                          │                    │   │
+///                  │         │      ▼   ▼    ▼  ▼    │                                        │                    │   │
+///                  │         │   sel┌───┐ sel┌─────┐ │                                        │                    │   │
+///                  │         │   ──►│MUX│ ──►│ MUX │◄┘                                        │                    │   │
+///                  │         │      └─┬─┘    └──┬──┘                                          │                    │   │
+///                  │         │        │         │                                             │                    │   │
+///                  │         │        ▼         ▼                                             │                    │   │
+///                  │         │      ┌─────────────┐                                           │                    │   │
+///                  │         │      │     ALU     │ALU signals                                │                    │   │
+///                  │         │      │             │◄───────────                               │                    │   │
+///                  │         │      │             │                                           │                    │   │
+///                  │         │      │             │                                           │                    │   │
+///                  │         │      └──────┬──────┘                                           │                    │   │
+///                  │         │             │                                                  │                    │   │
+///                  │         │             │                                                  │                    │   │
+///                  └─────────┴─────────────┼──────────────────────────────────────────────────┴────────────────────┘   │
+///                                          │                                                                           │
+///                                          │           ┌─────┐                                                         │
+///                                          └──────────►│FLAGS├─────────────────────────────────────────────────────────┘
+///                                                      └─────┘
 /// ```
 #[derive(Default, Debug)]
 pub struct DataPath<const MEMORY_SIZE: usize> {
@@ -392,7 +387,7 @@ pub struct DataPath<const MEMORY_SIZE: usize> {
 }
 
 /// Сигнал для демультиплексора на выходе из памяти
-pub enum ReadDemuxSel<'a> {
+pub enum ReadOutSel<'a> {
     /// Чтение в выходной буфер
     MemOutBuf,
     /// Чтение в регистр
@@ -420,7 +415,7 @@ pub enum AluRightMuxSel<'a> {
 }
 
 /// Сигнал для демультиплексора на выходе из АЛУ
-pub enum AluOutDemuxSel<'a> {
+pub enum AluOutSel<'a> {
     /// Передача в регистр в декодере
     Decoder { dest: &'a mut MachineWord },
     /// Передача в регистр
@@ -469,12 +464,12 @@ impl<const MEMORY_SIZE: usize> DataPath<MEMORY_SIZE> {
         }
         datapath
     }
-    pub fn signal_read(&mut self, sel: ReadDemuxSel) {
+    pub fn signal_read(&mut self, sel: ReadOutSel) {
         let val = self.memory[self.mem_addr.into()].clone();
         match sel {
-            ReadDemuxSel::MemOutBuf => self.mem_out_buf = val,
-            ReadDemuxSel::Registers(id) => self.regs[id] = val.as_number(),
-            ReadDemuxSel::Decoder { dest } => *dest = val,
+            ReadOutSel::MemOutBuf => self.mem_out_buf = val,
+            ReadOutSel::Registers(id) => self.regs[id] = val.as_number(),
+            ReadOutSel::Decoder { dest } => *dest = val,
         }
     }
     pub fn signal_write(&mut self) {
@@ -502,14 +497,14 @@ impl<const MEMORY_SIZE: usize> DataPath<MEMORY_SIZE> {
             AluSignal::AddRightOne => self.alu.set_add_right_one(),
         }
     }
-    pub fn signal_alu_perform(&mut self, op: AluOpCode, set_flags: bool, sel: AluOutDemuxSel) {
+    pub fn signal_alu_perform(&mut self, op: AluOpCode, set_flags: bool, sel: AluOutSel) {
         let res = self.alu.perform(op, if set_flags { Some(&mut self.flags) } else { None });
         match sel {
-            AluOutDemuxSel::Decoder { dest } => *dest = MachineWord::Data(Immed::new(res)),
-            AluOutDemuxSel::Registers(id) => self.regs[id] = res,
-            AluOutDemuxSel::MemAddr => self.mem_addr = res.into(),
-            AluOutDemuxSel::MemInBuf => self.mem_in_buf = MachineWord::Data(Immed::new(res)),
-            AluOutDemuxSel::None => (),
+            AluOutSel::Decoder { dest } => *dest = MachineWord::Data(Immed::new(res)),
+            AluOutSel::Registers(id) => self.regs[id] = res,
+            AluOutSel::MemAddr => self.mem_addr = res.into(),
+            AluOutSel::MemInBuf => self.mem_in_buf = MachineWord::Data(Immed::new(res)),
+            AluOutSel::None => (),
         }
     }
     pub fn signal_ports(&mut self, sel: PortsMuxSel) -> Result<(), MachineError> {

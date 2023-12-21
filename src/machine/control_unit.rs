@@ -61,16 +61,16 @@ impl<const M: usize> InstructionDecoder<M> {
                 datapath.signal_alu_perform(
                     AluOpCode::Add,
                     false,
-                    AluOutDemuxSel::Registers(InstructionPointer),
+                    AluOutSel::Registers(InstructionPointer),
                 );
             },
             3 => {
                 datapath.signal_left_alu(AluLeftMuxSel::Registers(InstructionPointer));
                 datapath.signal_alu(AluSignal::ResetRight);
-                datapath.signal_alu_perform(AluOpCode::Add, false, AluOutDemuxSel::MemAddr);
+                datapath.signal_alu_perform(AluOpCode::Add, false, AluOutSel::MemAddr);
             },
             4 => {
-                datapath.signal_read(ReadDemuxSel::MemOutBuf);
+                datapath.signal_read(ReadOutSel::MemOutBuf);
             },
             5 => {
                 datapath.signal_left_alu(AluLeftMuxSel::MemOutBuf);
@@ -78,7 +78,7 @@ impl<const M: usize> InstructionDecoder<M> {
                 datapath.signal_alu_perform(
                     AluOpCode::Stc,
                     false,
-                    AluOutDemuxSel::Decoder { dest: &mut self.operand_buf },
+                    AluOutSel::Decoder { dest: &mut self.operand_buf },
                 );
                 return Ok(ControlUnitState::ExecuteInstruction { tick_count: 1 });
             },
@@ -107,7 +107,7 @@ impl<const M: usize> InstructionDecoder<M> {
         tick_count: u8,
         datapath: &mut DataPath<M>,
     ) -> CUResult {
-        let call_alu = |datapath: &mut DataPath<M>, sel: AluOutDemuxSel| match math.opcode {
+        let call_alu = |datapath: &mut DataPath<M>, sel: AluOutSel| match math.opcode {
             MathOp::Mov => datapath.signal_alu_perform(AluOpCode::Mov, true, sel),
             MathOp::Add => datapath.signal_alu_perform(AluOpCode::Add, true, sel),
             MathOp::Sub => {
@@ -118,7 +118,7 @@ impl<const M: usize> InstructionDecoder<M> {
             MathOp::Cmp => {
                 datapath.signal_alu(AluSignal::InverseRight);
                 datapath.signal_alu(AluSignal::AddRightOne);
-                datapath.signal_alu_perform(AluOpCode::Add, true, AluOutDemuxSel::None)
+                datapath.signal_alu_perform(AluOpCode::Add, true, AluOutSel::None)
             },
             MathOp::Shl => datapath.signal_alu_perform(AluOpCode::Shl, true, sel),
             MathOp::Shr => datapath.signal_alu_perform(AluOpCode::Shr, true, sel),
@@ -130,7 +130,7 @@ impl<const M: usize> InstructionDecoder<M> {
                     1 => {
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(dest));
                         datapath.signal_right_alu(AluRightMuxSel::Registers(src));
-                        call_alu(datapath, AluOutDemuxSel::Registers(dest));
+                        call_alu(datapath, AluOutSel::Registers(dest));
                         return Ok(ControlUnitState::cycle_start());
                     },
                     _ => return Err(MachineError::InvalidTickCall),
@@ -145,15 +145,15 @@ impl<const M: usize> InstructionDecoder<M> {
                     1 => {
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(dest));
                         datapath.signal_alu(AluSignal::ResetRight);
-                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutDemuxSel::MemAddr);
+                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutSel::MemAddr);
                     },
                     2 => {
-                        datapath.signal_read(ReadDemuxSel::MemOutBuf);
+                        datapath.signal_read(ReadOutSel::MemOutBuf);
                     },
                     3 => {
                         datapath.signal_left_alu(AluLeftMuxSel::MemOutBuf);
                         datapath.signal_right_alu(AluRightMuxSel::Registers(src));
-                        call_alu(datapath, AluOutDemuxSel::MemInBuf);
+                        call_alu(datapath, AluOutSel::MemInBuf);
                     },
                     4 => {
                         datapath.signal_write();
@@ -170,15 +170,15 @@ impl<const M: usize> InstructionDecoder<M> {
                     1 => {
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(src));
                         datapath.signal_alu(AluSignal::ResetRight);
-                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutDemuxSel::MemAddr);
+                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutSel::MemAddr);
                     },
                     2 => {
-                        datapath.signal_read(ReadDemuxSel::MemOutBuf);
+                        datapath.signal_read(ReadOutSel::MemOutBuf);
                     },
                     3 => {
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(dest));
                         datapath.signal_right_alu(AluRightMuxSel::MemOutBuf);
-                        call_alu(datapath, AluOutDemuxSel::Registers(dest));
+                        call_alu(datapath, AluOutSel::Registers(dest));
                         return Ok(ControlUnitState::cycle_start());
                     },
                     _ => return Err(MachineError::InvalidTickCall),
@@ -193,15 +193,15 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu(AluSignal::ResetLeft);
                         datapath
                             .signal_right_alu(AluRightMuxSel::Decoder { src: &self.operand_buf });
-                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutDemuxSel::MemAddr);
+                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutSel::MemAddr);
                     },
                     2 => {
-                        datapath.signal_read(ReadDemuxSel::MemOutBuf);
+                        datapath.signal_read(ReadOutSel::MemOutBuf);
                     },
                     3 => {
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(dest));
                         datapath.signal_right_alu(AluRightMuxSel::MemOutBuf);
-                        call_alu(datapath, AluOutDemuxSel::Registers(dest));
+                        call_alu(datapath, AluOutSel::Registers(dest));
                         return Ok(ControlUnitState::cycle_start());
                     },
                     _ => return Err(MachineError::InvalidTickCall),
@@ -217,15 +217,15 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu(AluSignal::ResetLeft);
                         datapath
                             .signal_right_alu(AluRightMuxSel::Decoder { src: &self.operand_buf });
-                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutDemuxSel::MemAddr);
+                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutSel::MemAddr);
                     },
                     2 => {
-                        datapath.signal_read(ReadDemuxSel::MemOutBuf);
+                        datapath.signal_read(ReadOutSel::MemOutBuf);
                     },
                     3 => {
                         datapath.signal_left_alu(AluLeftMuxSel::MemOutBuf);
                         datapath.signal_right_alu(AluRightMuxSel::Registers(src));
-                        call_alu(datapath, AluOutDemuxSel::MemInBuf);
+                        call_alu(datapath, AluOutSel::MemInBuf);
                     },
                     4 => {
                         datapath.signal_write();
@@ -241,7 +241,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(dest));
                         datapath
                             .signal_right_alu(AluRightMuxSel::Decoder { src: &self.operand_buf });
-                        call_alu(datapath, AluOutDemuxSel::Registers(dest));
+                        call_alu(datapath, AluOutSel::Registers(dest));
                         return Ok(ControlUnitState::cycle_start());
                     },
                     _ => return Err(MachineError::InvalidTickCall),
@@ -273,7 +273,7 @@ impl<const M: usize> InstructionDecoder<M> {
                     datapath.signal_alu_perform(
                         AluOpCode::Mov,
                         false,
-                        AluOutDemuxSel::Registers(InstructionPointer),
+                        AluOutSel::Registers(InstructionPointer),
                     );
                     Ok(ControlUnitState::default())
                 } else {
@@ -299,7 +299,7 @@ impl<const M: usize> InstructionDecoder<M> {
                     datapath.signal_alu_perform(
                         AluOpCode::Add,
                         true,
-                        AluOutDemuxSel::Registers(alter.arg),
+                        AluOutSel::Registers(alter.arg),
                     );
                     Ok(ControlUnitState::cycle_start())
                 },
@@ -313,7 +313,7 @@ impl<const M: usize> InstructionDecoder<M> {
                     datapath.signal_alu_perform(
                         AluOpCode::Add,
                         true,
-                        AluOutDemuxSel::Registers(alter.arg),
+                        AluOutSel::Registers(alter.arg),
                     );
                     Ok(ControlUnitState::cycle_start())
                 },
@@ -367,7 +367,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Add,
                             false,
-                            AluOutDemuxSel::Decoder { dest: &mut self.operand_buf },
+                            AluOutSel::Decoder { dest: &mut self.operand_buf },
                         );
                     },
                     2 => {
@@ -376,7 +376,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Add,
                             false,
-                            AluOutDemuxSel::Registers(Data),
+                            AluOutSel::Registers(Data),
                         );
                     },
                     3 => {
@@ -387,7 +387,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Add,
                             false,
-                            AluOutDemuxSel::Registers(Count),
+                            AluOutSel::Registers(Count),
                         );
                     },
                     4 => {
@@ -396,7 +396,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Add,
                             true,
-                            AluOutDemuxSel::Registers(Base),
+                            AluOutSel::Registers(Base),
                         );
                     },
                     5 => {
@@ -416,7 +416,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Shl,
                             false,
-                            AluOutDemuxSel::Registers(Count),
+                            AluOutSel::Registers(Count),
                         );
                     },
                     7 => {
@@ -426,7 +426,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Shl,
                             true,
-                            AluOutDemuxSel::Registers(Base),
+                            AluOutSel::Registers(Base),
                         );
                         return Ok(ControlUnitState::ExecuteInstruction { tick_count: 4 });
                     },
@@ -446,7 +446,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Add,
                             true,
-                            AluOutDemuxSel::Registers(Accumulator),
+                            AluOutSel::Registers(Accumulator),
                         );
                     },
                     9 => {
@@ -456,7 +456,7 @@ impl<const M: usize> InstructionDecoder<M> {
                             datapath.signal_alu_perform(
                                 AluOpCode::Add,
                                 false,
-                                AluOutDemuxSel::Registers(Accumulator),
+                                AluOutSel::Registers(Accumulator),
                             );
                         } else {
                             datapath.signal_left_alu(AluLeftMuxSel::Registers(Data));
@@ -465,7 +465,7 @@ impl<const M: usize> InstructionDecoder<M> {
                             datapath.signal_alu_perform(
                                 AluOpCode::Add,
                                 false,
-                                AluOutDemuxSel::Registers(Data),
+                                AluOutSel::Registers(Data),
                             );
                         }
                     },
@@ -482,7 +482,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Add,
                             false,
-                            AluOutDemuxSel::Registers(Count),
+                            AluOutSel::Registers(Count),
                         );
                     },
                     12 => {
@@ -492,7 +492,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Ror,
                             false,
-                            AluOutDemuxSel::Registers(Count),
+                            AluOutSel::Registers(Count),
                         );
                     },
                     13 => {
@@ -502,7 +502,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Shr,
                             false,
-                            AluOutDemuxSel::Registers(Base),
+                            AluOutSel::Registers(Base),
                         );
                     },
                     14 => {
@@ -512,7 +512,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Shl,
                             false,
-                            AluOutDemuxSel::Registers(Data),
+                            AluOutSel::Registers(Data),
                         );
                         return Ok(ControlUnitState::ExecuteInstruction { tick_count: 8 });
                     },
@@ -528,7 +528,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Add,
                             false,
-                            AluOutDemuxSel::Registers(Count),
+                            AluOutSel::Registers(Count),
                         );
                     },
                     16 => {
@@ -537,7 +537,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Add,
                             false,
-                            AluOutDemuxSel::Decoder { dest: &mut self.operand_buf },
+                            AluOutSel::Decoder { dest: &mut self.operand_buf },
                         );
                     },
                     17 => {
@@ -546,7 +546,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Add,
                             false,
-                            AluOutDemuxSel::Registers(Data),
+                            AluOutSel::Registers(Data),
                         );
                     },
                     18 => {
@@ -556,7 +556,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Add,
                             false,
-                            AluOutDemuxSel::Registers(Accumulator),
+                            AluOutSel::Registers(Accumulator),
                         );
                         return Ok(ControlUnitState::cycle_start());
                     },
@@ -590,34 +590,26 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Add,
                             false,
-                            AluOutDemuxSel::Registers(StackPointer),
+                            AluOutSel::Registers(StackPointer),
                         );
                     },
                     2 => {
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(StackPointer));
                         datapath.signal_alu(AluSignal::ResetRight);
-                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutDemuxSel::MemAddr);
+                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutSel::MemAddr);
                     },
                     3 => match stack.args {
                         StackOpHigherArgs::Register(id) => {
                             datapath.signal_left_alu(AluLeftMuxSel::Registers(id));
                             datapath.signal_alu(AluSignal::ResetRight);
-                            datapath.signal_alu_perform(
-                                AluOpCode::Add,
-                                false,
-                                AluOutDemuxSel::MemInBuf,
-                            );
+                            datapath.signal_alu_perform(AluOpCode::Add, false, AluOutSel::MemInBuf);
                         },
                         StackOpHigherArgs::Immed(_) => {
                             datapath.signal_alu(AluSignal::ResetLeft);
                             datapath.signal_right_alu(AluRightMuxSel::Decoder {
                                 src: &self.operand_buf,
                             });
-                            datapath.signal_alu_perform(
-                                AluOpCode::Add,
-                                false,
-                                AluOutDemuxSel::MemInBuf,
-                            );
+                            datapath.signal_alu_perform(AluOpCode::Add, false, AluOutSel::MemInBuf);
                         },
                         StackOpHigherArgs::None => return Err(MachineError::InvalidTickCall),
                     },
@@ -641,10 +633,10 @@ impl<const M: usize> InstructionDecoder<M> {
                     1 => {
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(StackPointer));
                         datapath.signal_alu(AluSignal::ResetRight);
-                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutDemuxSel::MemAddr);
+                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutSel::MemAddr);
                     },
                     2 => {
-                        datapath.signal_read(ReadDemuxSel::Registers(id));
+                        datapath.signal_read(ReadOutSel::Registers(id));
 
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(StackPointer));
                         datapath.signal_alu(AluSignal::ResetRight);
@@ -652,7 +644,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Add,
                             false,
-                            AluOutDemuxSel::Registers(StackPointer),
+                            AluOutSel::Registers(StackPointer),
                         );
 
                         return Ok(ControlUnitState::cycle_start());
@@ -673,22 +665,18 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Add,
                             false,
-                            AluOutDemuxSel::Registers(StackPointer),
+                            AluOutSel::Registers(StackPointer),
                         );
                     },
                     2 => {
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(StackPointer));
                         datapath.signal_alu(AluSignal::ResetRight);
-                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutDemuxSel::MemAddr);
+                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutSel::MemAddr);
                     },
                     3 => {
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(InstructionPointer));
                         datapath.signal_alu(AluSignal::ResetRight);
-                        datapath.signal_alu_perform(
-                            AluOpCode::Add,
-                            false,
-                            AluOutDemuxSel::MemInBuf,
-                        );
+                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutSel::MemInBuf);
                     },
                     4 => {
                         datapath.signal_write();
@@ -699,7 +687,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Add,
                             false,
-                            AluOutDemuxSel::Registers(InstructionPointer),
+                            AluOutSel::Registers(InstructionPointer),
                         );
                         return Ok(ControlUnitState::default());
                     },
@@ -713,10 +701,10 @@ impl<const M: usize> InstructionDecoder<M> {
                     1 => {
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(StackPointer));
                         datapath.signal_alu(AluSignal::ResetRight);
-                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutDemuxSel::MemAddr);
+                        datapath.signal_alu_perform(AluOpCode::Add, false, AluOutSel::MemAddr);
                     },
                     2 => {
-                        datapath.signal_read(ReadDemuxSel::Registers(InstructionPointer));
+                        datapath.signal_read(ReadOutSel::Registers(InstructionPointer));
 
                         datapath.signal_left_alu(AluLeftMuxSel::Registers(StackPointer));
                         datapath.signal_alu(AluSignal::ResetRight);
@@ -724,7 +712,7 @@ impl<const M: usize> InstructionDecoder<M> {
                         datapath.signal_alu_perform(
                             AluOpCode::Add,
                             false,
-                            AluOutDemuxSel::Registers(StackPointer),
+                            AluOutSel::Registers(StackPointer),
                         );
                         return Ok(ControlUnitState::cycle_start());
                     },
@@ -758,57 +746,42 @@ impl Default for ControlUnitState {
 }
 
 /// ```ignore
-///                                                                          ┌───────────┐
-///                                                                          │ microcode │
-///                                                                          │ decoder   │
-///                                                                          └───┬──────┬┘
-///                                                                              │      │
-///                                                                              │      │
-///                                                                              │      │
-///                                                                              │      │
-/// ┌───────────────────────────────────────────────────────────────────┐        │      │
-/// │                            Decoder                                │        │      │
-/// │                                                                   │        │      │
-/// │                                                                   │        │      │
-/// │                                                                   │        │      │
-/// │                                                                   │Signals │      │
-/// │                        *чёрная магия*                             ◄────────┘      │
-/// │                                                                   │               │
-/// │                                                                   │               │
-/// │                           operand pipe                            │               │
-/// │                        ┌─────────────────┐                        │               │
-/// │                        │                 │                        │               │
-/// │        ┌───────────────┴──┐            ┌─▼────────────┐           │               │
-/// │        │Instruction buffer│            │Operand buffer│           │               │
-/// │        └─▲────────────────┘            └─▲──────────┬─┘           │               │
-/// │          │                               │          │             │               │
-/// │          │                               │          │             │               │
-/// │          │                               │          │             ├───────────────┤
-/// │          │                               │          │             │               │
-/// │          │  ┌────────────────────────────┘          │             │               │
-/// │          │  │                                       │             │               │
-/// │         ┌┴──┴─┐                                     │             │               │
-/// │         │DEMUX│                                     │             │ flags         │
-/// │         └─▲───┘                                     │             ◄─────────┐     │
-/// │           │                                         │             │         │     │
-/// └───────────┼─────────────────────────────────────────┼─────────────┘         │     │
-///             │                                         │                       │     │
-///             │                                         │                       │     │
-///             │                                         │                       │     │
-///             │                                         │                       │     │
-///             │                                         │                       │     │
-///             │                                         │                       │     │
-///             │from ALU DEMUX                           ▼to right ALU MUX       │     │
-/// ┌───────────┴───────────────────────────────────────────────────────┐         │     │
-/// │                              Datapath                             │         │     │
-/// │                                                                   ├─────────┘     │
-/// │                                                                   │               │
-/// │                                                                   │               │
-/// │                                                                   ◄───────────────┘
-/// │                                                                   │ Signals
-/// │                                                                   │
-/// │                                                                   │
-/// └───────────────────────────────────────────────────────────────────┘
+///                               ┌───────────────────────┬────────────────────────┬───────────────┐
+///                               │                       │                        │               │
+///                               │ latch                 │       latch            │   latch       │
+///                ┌──────────────┴┐instruction buf  ┌────┴──────┐operand buf   ┌──┴──┐eip         │
+///                │instruction buf│◄──────────────  │operand buf│◄──────────   │ eip │◄──         ▼
+///                └───────────────┘                 └────────┬──┘              └┬───┬┘        ┌──────────────┐
+///                 ▲                                 ▲       │                  │ ▲ │         │   DECODER    │
+///                 │                                 │       ├──────────────────┘ │ │         │              │
+///                 │                                 │       │                    │ │         │              │
+///                 │                                 │       │                    │ │         ├────────┐     │
+///                 └──────────────────────────┬──────┴───────┼────────────────────┘ │         │ cycle  │     │
+///                                            │              │                      │         │ counter│     │
+///                                        sel┌┴──┐           │                      │         └────────┴────┬┘
+///                                        ──►│MUX│           │                      │                    ▲  │
+///                                           └───┘           │     ┌────────────────┘                    │  │
+///                                            ▲ ▲            │     │                                     │  │
+///                                          ┌─┘ └───┐        │     │             ┌───────────────────────┘  │
+///                                          │from   │from    │to   │ to          │from                      │
+///                                          │ALU    │memory  ▼ALU  ▼ mem addr    │FLAGS                     │
+///                                         ┌┴───────┴────────────────────────────┴─┐                        │
+///                                         │                                       │                        │
+///                                         │                 DATAPATH              │                        │
+///                                         │                                       │                        │
+///                                         │                                       │                        │
+///                                         │                                       │SIGNALS                 │
+///                                         │                                       │◄───────────────────────┘
+/// ┌────────────────────┐         to/from  │                                       │
+/// │  EXTERNAL DEVICES  │         regs     │                                       │
+/// │  (PORTS)           │◄──────────────►  │                                       │
+/// │                    │                  │                                       │
+/// │                    │                  │                                       │
+/// │                    │                  │                                       │
+/// └────────────────────┘                  │                                       │
+///                                         │                                       │
+///                                         │                                       │
+///                                         └───────────────────────────────────────┘
 /// ```
 #[derive(Default, Debug)]
 pub struct ControlUnit<const MEM_SIZE: usize, const TICK_LIMIT: usize> {
@@ -866,17 +839,17 @@ impl<const MEM_SIZE: usize, const TICK_LIMIT: usize> ControlUnit<MEM_SIZE, TICK_
                 self.datapath.signal_alu_perform(
                     AluOpCode::Add,
                     false,
-                    AluOutDemuxSel::Registers(InstructionPointer),
+                    AluOutSel::Registers(InstructionPointer),
                 );
             },
             2 => {
                 self.datapath.signal_left_alu(AluLeftMuxSel::Registers(InstructionPointer));
                 self.datapath.signal_alu(AluSignal::ResetRight);
-                self.datapath.signal_alu_perform(AluOpCode::Add, false, AluOutDemuxSel::MemAddr);
+                self.datapath.signal_alu_perform(AluOpCode::Add, false, AluOutSel::MemAddr);
             },
             3 => {
                 self.datapath
-                    .signal_read(ReadDemuxSel::Decoder { dest: &mut self.decoder.instruction });
+                    .signal_read(ReadOutSel::Decoder { dest: &mut self.decoder.instruction });
             },
             4 => {
                 return self.decoder.decode();
